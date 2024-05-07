@@ -2,78 +2,68 @@
 Handling reduced-dimension models of P
 '''
 
-from abc import ABC, abstractmethod
+import multiprocessing as mp
+import numpy as np
+import pandas as pd
+from sklearn.cluster import HDBSCAN
+from sklearn.decomposition import NMF
+from prince import MCA
+from umap import UMAP
+from tqdm.notebook import tqdm
 
-class BaseModel(ABC):
+def run_nmf(data, ranks, max_iter=10_000):
     """
-    Abstract base class for modeling techniques in pyphylon.
-    This class outlines shared behavior and interface for models like NMF, HDBSCAN,
-    UMAP, and MCA.
+    Run NMF multiple times and possibly across multiple ranks.
+
+    :param data: DataFrame containing the dataset to be analyzed.
+    :param ranks: List of ranks (components) to try.
+    :param max_iter: Max number of iterations to try to reach convergence.
+    :return W_dict: A dictionary of transformed data at various ranks.
+    :return H_dict: A dictionary of model components at various ranks.
     """
-    
-    def __init__(self, n_components=None, random_state=None, **kwargs):
-        """
-        Initialize the model with common parameters.
+    W_dict = {}
+    H_dict = {}
 
-        Parameters:
-        - n_components: int, optional (default=None)
-            Number of components to use, if applicable.
-        - random_state: int, RandomState instance or None, optional (default=None)
-            If int, random_state is the seed used by the random number generator;
-            If RandomState instance, random_state is the random number generator;
-            If None, the random number generator is the RandomState instance used by `np.random`.
-        - kwargs: Additional keyword arguments.
-        """
-        self.n_components = n_components
-        self.random_state = random_state
-        self.params = kwargs
+    # Perform NMF for each rank in ranks
+    for rank in tqdm(ranks, desc='Running NMF at varying ranks...'):
+        
+        model = NMF(n_components=rank,
+                    init='nndsvd',      # Run NMF with NNDSVD initialization (for sparsity)
+                    max_iter=max_iter,
+                    random_state=42
+                    )
+        
+        W = model.fit_transform(data)
+        H = model.components_
+        reconstruction = np.dot(W, H)
+        error = np.linalg.norm(data - reconstruction, 'fro')  # Calculate the Frobenius norm of the difference
 
-    @abstractmethod
-    def fit(self, X, y=None):
-        """
-        Fit the model to data.
+        # Store the best W and H matrices in the dictionaries with the rank as the key
+        W_dict[rank] = W
+        H_dict[rank] = H
 
-        Parameters:
-        - X: array-like, shape (n_samples, n_features)
-            Training data to fit.
-        - y: array-like, shape (n_samples,) or (n_samples, n_outputs), optional
-            Target values (class labels in classification, real numbers in regression).
-        """
-        pass
+        return W_dict, H_dict
 
-    @abstractmethod
-    def transform(self, X):
-        """
-        Transform the data using the model.
+def run_mca(data):
+    """
+    Run Multiple Correspondence Analysis (MCA) on the dataset.
 
-        Parameters:
-        - X: array-like, shape (n_samples, n_features)
-            Data to transform.
-        """
-        pass
+    :param data: DataFrame containing the dataset to be analyzed.
+    :return: MCA fitted model.
+    """
+    mca = MCA(n_components=2, random_state=42)
+    mca.fit(data)
+    return mca
 
-    @abstractmethod
-    def fit_transform(self, X, y=None):
-        """
-        Fit the model to data and transform it in one step.
+def run_densmap_hdbscan(data):
+    """
+    Run DensMAP followed by HDBSCAN on the dataset.
 
-        Parameters:
-        - X: array-like, shape (n_samples, n_features)
-            Training data to fit and transform.
-        - y: array-like, shape (n_samples,) or (n_samples, n_outputs), optional
-            Target values.
-        """
-        pass
-
-    @abstractmethod
-    def score(self, X, y=None):
-        """
-        Returns a score of the model given data.
-
-        Parameters:
-        - X: array-like, shape (n_samples, n_features)
-            Test samples.
-        - y: array-like, shape (n_samples,) or (n_samples, n_outputs), optional
-            True labels for X.
-        """
-        pass
+    :param data: DataFrame containing the dataset to be analyzed.
+    :return: Cluster labels from HDBSCAN.
+    """
+    densmap = UMAP(n_components=2, n_neighbors=30, min_dist=0.0, metric='euclidean', random_state=42, densmap=True)
+    embedding = densmap.fit_transform(data)
+    clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
+    labels = clusterer.fit_predict(embedding)
+    return labels
