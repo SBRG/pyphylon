@@ -13,7 +13,7 @@ class NmfData:
     """
     
     def __init__(
-        self, P: pd.DataFrame, genome_data: Optional[pd.DataFrame], gene_table: Optional[pd.DataFrame],
+        self, P: pd.DataFrame, genome_table: Optional[pd.DataFrame], gene_table: Optional[pd.DataFrame],
         L_norm: Optional[pd.DataFrame] = None, L_bin: Optional[pd.DataFrame] = None,
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
@@ -25,7 +25,8 @@ class NmfData:
 
         Parameters:
         - P: DataFrame with genes as rows and strains/genomes as columns.
-        - genome_data: DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
+        - genome_table: Optional DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
+        - gene_table: Optional DataFrame with functional annotations for all genes in the pangenome
         - L_norm: Optional DataFrame for L normalization.
         - L_bin: Optional DataFrame for binary version of L_norm.
         - A_norm: Optional DataFrame for A normalization.
@@ -38,7 +39,8 @@ class NmfData:
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
-        self._genome_data = genome_data
+        self._genome_table = genome_table
+        self._gene_table = genome_table
         self._L_norm = L_norm
         self._L_bin = L_bin
         self._A_norm = A_norm
@@ -136,6 +138,6 @@ class NmfData:
         return self._F_bin
     
     @property
-    def genome_data(self):
-        """Get the genome genome_data."""
-        return self._genome_data
+    def genome_table(self):
+        """Get the genome genome_table."""
+        return self._genome_table
