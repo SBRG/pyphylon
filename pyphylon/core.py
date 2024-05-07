@@ -13,7 +13,7 @@ class NmfData:
     """
     
     def __init__(
-        self, P: pd.DataFrame, metadata: pd.DataFrame,
+        self, P: pd.DataFrame, genome_data: Optional[pd.DataFrame], gene_table: Optional[pd.DataFrame],
         L_norm: Optional[pd.DataFrame] = None, L_bin: Optional[pd.DataFrame] = None,
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
@@ -25,7 +25,7 @@ class NmfData:
 
         Parameters:
         - P: DataFrame with genes as rows and strains/genomes as columns.
-        - metadata: DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
+        - genome_data: DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
         - L_norm: Optional DataFrame for L normalization.
         - L_bin: Optional DataFrame for binary version of L_norm.
         - A_norm: Optional DataFrame for A normalization.
@@ -38,7 +38,7 @@ class NmfData:
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
-        self._metadata = metadata
+        self._genome_data = genome_data
         self._L_norm = L_norm
         self._L_bin = L_bin
         self._A_norm = A_norm
@@ -136,6 +136,6 @@ class NmfData:
         return self._F_bin
     
     @property
-    def metadata(self):
-        """Get the genome metadata."""
-        return self._metadata
+    def genome_data(self):
+        """Get the genome genome_data."""
+        return self._genome_data
