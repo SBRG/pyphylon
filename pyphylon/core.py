@@ -156,7 +156,7 @@ class NmfData:
         '''Get the gene annotations'''
         return self._gene_table
     
-    @genome_table.setter
+    @gene_table.setter
     def gene_table(self, table):
         #TODO: implement this setter
         # gene_table = _check_table(table)
