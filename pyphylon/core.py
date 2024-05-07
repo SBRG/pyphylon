@@ -139,5 +139,28 @@ class NmfData:
     
     @property
     def genome_table(self):
-        """Get the genome genome_table."""
+        """Get the genome table."""
         return self._genome_table
+    
+    @genome_table.setter
+    def genome_table(self, table):
+        #TODO: implement this setter
+        # genome_table = _check_table(table)
+        # other code...
+        # Set the genome table
+        # self._genome_table = genome_table
+        pass
+    
+    @property
+    def gene_table(self):
+        '''Get the gene annotations'''
+        return self._gene_table
+    
+    @genome_table.setter
+    def gene_table(self, table):
+        #TODO: implement this setter
+        # gene_table = _check_table(table)
+        # other code...
+        # Set the gene annotations
+        # self._gene_table = gene_table
+        pass
