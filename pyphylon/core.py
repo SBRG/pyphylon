@@ -56,22 +56,22 @@ class NmfData:
         Validate the correctness of the input dataframes based on the provided specifications.
         """
         if self._L_norm is not None and self._A_norm is not None:
-            _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm)
+            _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm, 'P', 'L_norm', 'A_norm')
             if self._L_bin:
-                _validate_identical_shapes(self._L_norm, self._L_bin)
+                _validate_identical_shapes(self._L_norm, self._L_bin, 'L_norm', 'L_bin')
             if self._A_bin:
-                _validate_identical_shapes(self._A_norm, self._A_bin)
+                _validate_identical_shapes(self._A_norm, self._A_bin, 'A_norm', 'A_bin')
         
         if self._V:
             if self._V.shape[1] != self._P.shape[1]:
                 raise ValueError("Columns in V must match the columns in P.")
 
         if self._V is not None and self._U_norm is not None and self._F_norm is not None:
-            _validate_decomposition_shapes(self._V, self._U_norm, self._F_norm)
+            _validate_decomposition_shapes(self._V, self._U_norm, self._F_norm, 'V', 'U_norm', 'F_norm')
             if self._U_bin:
-                _validate_identical_shapes(self._U_norm, self._U_bin)
+                _validate_identical_shapes(self._U_norm, self._U_bin, 'U_norm', 'U_bin')
             if self._F_bin:
-                _validate_identical_shapes(self._F_norm, self._F_bin)
+                _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
 
     def preprocess_data(self):
         """
