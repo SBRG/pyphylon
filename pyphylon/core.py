@@ -7,7 +7,7 @@ import pandas as pd
 
 from pyphylon.util import _validate_identical_shapes, _validate_decomposition_shapes
 
-class NmfData:
+class NmfData(object):
     """
     Class representation of all related data for phylon analysis.
     """
