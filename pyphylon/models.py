@@ -113,7 +113,7 @@ class NmfModel(object):
 
     def __init__(self, data: pd.DataFrame, ranks: Iterable, max_iter: int = 10_000):
         '''
-        Initialize the NmfModel object with required and optional dataframes.
+        Initialize the NmfModel object with required data matrix and rank list.
 
         Parameters:
         - data: DataFrame on which NMF will be run
@@ -134,7 +134,7 @@ class NmfModel(object):
         self._A_binarized_dict = None
         self._P_reconstructed_dict = None
         self._P_error_dict = None
-        self.P_confusion_dict = None
+        self._P_confusion_dict = None
         self._df_metrics = None
 
     
@@ -182,7 +182,7 @@ class NmfModel(object):
     def L_norm_dict(self):
         '''Get a dictionary of L matrices across chosen ranks'''
         if not self._L_norm_dict:
-            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self._data, self._W_dict, self._H_dict)
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self.data, self.W_dict, self.H_dict)
             self._L_norm_dict = L_norm_dict
             self._A_norm_dict = A_norm_dict
         
@@ -196,7 +196,7 @@ class NmfModel(object):
     def A_norm_dict(self):
         '''Get a dictionary of A matrices across chosen ranks'''
         if not self._A_norm_dict:
-            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self._data, self._W_dict, self._H_dict)
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self.data, self.W_dict, self.H_dict)
             self._L_norm_dict = L_norm_dict
             self._A_norm_dict = A_norm_dict
         
@@ -209,32 +209,103 @@ class NmfModel(object):
     @property
     def L_binarized_dict(self):
         '''Get a dictionary of binarized L matrices across chosen ranks'''
-        if self._L_binarized_dict:
-            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self._L_norm_dict, self._A_norm_dict)
+        if not self._L_binarized_dict:
+            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self.L_norm_dict, self.A_norm_dict)
             self._L_binarized_dict = L_binarized_dict
             self._A_binarized_dict = A_binarized_dict
         
         return self._L_binarized_dict
+    
+    @L_binarized_dict.setter
+    def L_binarized_dict(self, new_dict):
+        self._L_binarized_dict = new_dict
 
     @property
     def A_binarized_dict(self):
         '''Get a dictionary of binarized A matrices across chosen ranks'''
+        if not self._A_binarized_dict:
+            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self.L_norm_dict, self.A_norm_dict)
+            self._L_binarized_dict = L_binarized_dict
+            self._A_binarized_dict = A_binarized_dict
+        
         return self._A_binarized_dict
+    
+    @A_binarized_dict.setter
+    def A_binarized_dict(self, new_dict):
+        self._A_binarized_dict = new_dict
     
     @property
     def P_reconstructed_dict(self):
         '''Get a dictionary of the reconstructed data matrix from post-processed NMF'''
+        if not self._P_reconstructed_dict:
+            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+                self.data,
+                self.L_binarized_dict,
+                self.A_binarized_dict
+            )
+            self._P_reconstructed_dict = P_reconstructed_dict
+            self._P_error_dict = P_error_dict
+            self._P_confusion_dict = P_confusion_dict
+            
         return self._P_reconstructed_dict
+    
+    @P_reconstructed_dict.setter
+    def P_reconstructed_dict(self, new_dict):
+         self._P_reconstructed_dict = new_dict
     
     @property
     def P_error_dict(self):
         '''Get a dictionary of the errors between orig and reconstr data matrices'''
+        if not self._P_error_dict:
+            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+                self.data,
+                self.L_binarized_dict,
+                self.A_binarized_dict
+            )
+            self._P_reconstructed_dict = P_reconstructed_dict
+            self._P_error_dict = P_error_dict
+            self._P_confusion_dict = P_confusion_dict
+                
         return self._P_error_dict
+    
+    @P_error_dict.setter
+    def P_error_dict(self, new_dict):
+         self._P_error_dict = new_dict
+    
+    @property
+    def P_confusion_dict(self):
+        '''Get a dictionary of the confusion matrix between orig and reconstr data matrices'''
+        if not self._P_confusion_dict:
+            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+                self.data,
+                self.L_binarized_dict,
+                self.A_binarized_dict
+            )
+            self._P_reconstructed_dict = P_reconstructed_dict
+            self._P_error_dict = P_error_dict
+            self._P_confusion_dict = P_confusion_dict
+        
+        return self._P_confusion_dict
+    
+    @P_confusion_dict.setter
+    def P_confusion_dict(self, new_dict):
+         self._P_confusion_dict = new_dict
     
     @property
     def df_metrics(self):
         '''Return a table of metrics for NMF model reconstructions across ranks'''
+        if not self._df_metrics:
+            df_metrics = calculate_nmf_reconstruction_metrics(
+                self.P_reconstructed_dict,
+                self.P_confusion_dict
+            )
+            self._df_metrics = df_metrics
+        
         return self._df_metrics
+    
+    @df_metrics.setter
+    def df_metrics(self, new_dict):
+         self.df_metrics = new_dict
 
 
 def run_mca(data):
