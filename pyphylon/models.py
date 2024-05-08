@@ -126,6 +126,19 @@ def run_mca(data):
 
     return mca
 
+def run_densmap_hdbscan(data):
+    """
+    Run DensMAP followed by HDBSCAN on the dataset.
+
+    :param data: DataFrame containing the dataset to be analyzed.
+    :return: Cluster labels from HDBSCAN.
+    """
+    densmap = UMAP(n_components=2, n_neighbors=30, min_dist=0.0, metric='euclidean', random_state=42, densmap=True)
+    embedding = densmap.fit_transform(data)
+    clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
+    labels = clusterer.fit_predict(embedding)
+    return labels
+
 class NmfModel(object):
     '''
     Class representation of NMF models and their reconstructions w/metrics
@@ -326,19 +339,6 @@ class NmfModel(object):
     @df_metrics.setter
     def df_metrics(self, new_dict):
          self.df_metrics = new_dict
-
-def run_densmap_hdbscan(data):
-    """
-    Run DensMAP followed by HDBSCAN on the dataset.
-
-    :param data: DataFrame containing the dataset to be analyzed.
-    :return: Cluster labels from HDBSCAN.
-    """
-    densmap = UMAP(n_components=2, n_neighbors=30, min_dist=0.0, metric='euclidean', random_state=42, densmap=True)
-    embedding = densmap.fit_transform(data)
-    clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
-    labels = clusterer.fit_predict(embedding)
-    return labels
 
 # Helper functions
 def _k_means_binarize_L(L_norm):
