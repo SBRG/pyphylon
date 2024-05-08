@@ -20,7 +20,7 @@ class NmfData(object):
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
         F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
-        nmf: Optional[NmfModel], **kwargs
+        nmf: Optional[NmfModel] = None, **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
