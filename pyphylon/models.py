@@ -563,7 +563,6 @@ def _calculate_metrics(P_confusion):
         PT = (np.sqrt(Recall * one_minus_Sp) + Specificity - 1) / (BM)
     else:
         PT = 0
-    Prevalence_Threshold = PT
     
     return {
         'Precision': Precision,
@@ -575,7 +574,7 @@ def _calculate_metrics(P_confusion):
         'Accuracy': Accuracy,
         'F1 Score': F1_score,
         'BM': BM,
-        'Prevalence Threshold': Prevalence_Threshold,
+        'Prevalence Threshold': PT,
         'MCC': MCC,
         'Jaccard Index': Jaccard_index
     }
