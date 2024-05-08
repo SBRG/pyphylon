@@ -1,10 +1,11 @@
 """
-Core functions for the NmfData data object.
+Core functions for the NmfData object.
 """
 
 from typing import Optional
 import pandas as pd
 
+from pyphylon.models import *
 from pyphylon.util import _validate_identical_shapes, _validate_decomposition_shapes
 
 class NmfData(object):
@@ -18,7 +19,7 @@ class NmfData(object):
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
-        F_bin: Optional[pd.DataFrame] = None, **kwargs
+        F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None, **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
@@ -36,11 +37,12 @@ class NmfData(object):
         - U_bin: Optional DataFrame for binary version of U_norm.
         - F_norm: Optional DataFrame for F normalization linked with V.
         - F_bin: Optional DataFrame for binary version of F_norm.
+        - mca: Optional MCA model for optimal rank determination
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
         self._genome_table = genome_table
-        self._gene_table = genome_table
+        self._gene_table = gene_table
         self._L_norm = L_norm
         self._L_bin = L_bin
         self._A_norm = A_norm
@@ -74,18 +76,6 @@ class NmfData(object):
                 _validate_identical_shapes(self._U_norm, self._U_bin, 'U_norm', 'U_bin')
             if self._F_bin:
                 _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
-
-    def preprocess_data(self):
-        """
-        Preprocess data for NMF analysis. Placeholder for preprocessing steps.
-        """
-        pass
-
-    def analyze_data(self):
-        """
-        Perform analysis using the prepared data. Placeholder for analysis methods.
-        """
-        pass
 
     @property
     def P(self):

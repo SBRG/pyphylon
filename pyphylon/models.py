@@ -1,8 +1,8 @@
 '''
-Handling reduced-dimension models of P
+Functions for handling NMF and MCA models of pangenome data
 '''
 
-import multiprocessing as mp
+from typing import Iterable
 import numpy as np
 import pandas as pd
 from sklearn.cluster import HDBSCAN, KMeans
@@ -49,7 +49,7 @@ def run_nmf(data, ranks, max_iter=10_000):
 
 def normalize_nmf_outputs(data, W_dict, H_dict):
     '''
-    Normalize NMF outputs (99th perctentile = 1, column-by-column)
+    Normalize NMF outputs (99th perctentile of W, column-by-column)
     '''
     L_norm_dict = {}
     A_norm_dict = {}
@@ -106,6 +106,137 @@ def calculate_nmf_reconstruction_metrics(P_reconstructed_dict, P_confusion_dict)
 
     return df_metrics
 
+class NmfModel(object):
+    '''
+    Class representation of NMF models and their reconstructions w/metrics
+    '''
+
+    def __init__(self, data: pd.DataFrame, ranks: Iterable, max_iter: int = 10_000):
+        '''
+        Initialize the NmfModel object with required and optional dataframes.
+
+        Parameters:
+        - data: DataFrame on which NMF will be run
+        - ranks: Iterable of ranks on which to perform NMF
+        - max_iter: Max num of iterations allowed for convergence, default 10_000
+        '''
+
+        self._data = data
+        self._ranks = ranks
+        self._max_iter = max_iter
+
+        # Initialize other properties to None
+        self._W_dict = None
+        self._H_dict = None
+        self._L_norm_dict = None
+        self._A_norm_dict = None
+        self._L_binarized_dict = None
+        self._A_binarized_dict = None
+        self._P_reconstructed_dict = None
+        self._P_error_dict = None
+        self.P_confusion_dict = None
+        self._df_metrics = None
+
+    
+    @property
+    def data(self):
+        '''Get input data for NMF models'''
+        return self._data
+    
+    @property
+    def ranks(self):
+        '''Get ranks on which NMF will be performed'''
+        return self._ranks
+    
+    # If None, compute the following properties when called
+    
+    @property
+    def W_dict(self):
+        '''Get a dictionary of raw W matrices across chosen ranks'''
+        if not self._W_dict:
+            W_dict, H_dict = run_nmf(self._data, self._ranks, max_iter=self._max_iter)
+            self._W_dict = W_dict
+            self._H_dict = H_dict
+        
+        return self._W_dict
+    
+    @W_dict.setter
+    def W_dict(self, new_dict):
+        self._W_dict = new_dict
+
+    @property
+    def H_dict(self):
+        '''Get a dictionary of raw H matrices across chosen ranks'''
+        if not self._H_dict:
+            W_dict, H_dict = run_nmf(self._data, self._ranks, max_iter=self._max_iter)
+            self._W_dict = W_dict
+            self._H_dict = H_dict
+        
+        return self._H_dict
+    
+    @H_dict.setter
+    def H_dict(self, new_dict):
+        self._H_dict = new_dict
+    
+    @property
+    def L_norm_dict(self):
+        '''Get a dictionary of L matrices across chosen ranks'''
+        if not self._L_norm_dict:
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self._data, self._W_dict, self._H_dict)
+            self._L_norm_dict = L_norm_dict
+            self._A_norm_dict = A_norm_dict
+        
+        return self._L_norm_dict
+    
+    @L_norm_dict.setter
+    def L_norm_dict(self, new_dict):
+        self._L_norm_dict = new_dict
+
+    @property
+    def A_norm_dict(self):
+        '''Get a dictionary of A matrices across chosen ranks'''
+        if not self._A_norm_dict:
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self._data, self._W_dict, self._H_dict)
+            self._L_norm_dict = L_norm_dict
+            self._A_norm_dict = A_norm_dict
+        
+        return self._A_norm_dict
+    
+    @A_norm_dict.setter
+    def A_norm_dict(self, new_dict):
+        self._A_norm_dict = new_dict
+
+    @property
+    def L_binarized_dict(self):
+        '''Get a dictionary of binarized L matrices across chosen ranks'''
+        if self._L_binarized_dict:
+            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self._L_norm_dict, self._A_norm_dict)
+            self._L_binarized_dict = L_binarized_dict
+            self._A_binarized_dict = A_binarized_dict
+        
+        return self._L_binarized_dict
+
+    @property
+    def A_binarized_dict(self):
+        '''Get a dictionary of binarized A matrices across chosen ranks'''
+        return self._A_binarized_dict
+    
+    @property
+    def P_reconstructed_dict(self):
+        '''Get a dictionary of the reconstructed data matrix from post-processed NMF'''
+        return self._P_reconstructed_dict
+    
+    @property
+    def P_error_dict(self):
+        '''Get a dictionary of the errors between orig and reconstr data matrices'''
+        return self._P_error_dict
+    
+    @property
+    def df_metrics(self):
+        '''Return a table of metrics for NMF model reconstructions across ranks'''
+        return self._df_metrics
+
+
 def run_mca(data):
     """
     Run Multiple Correspondence Analysis (MCA) on the dataset.
@@ -113,8 +244,16 @@ def run_mca(data):
     :param data: DataFrame containing the dataset to be analyzed.
     :return: MCA fitted model.
     """
-    mca = MCA(n_components=2, random_state=42)
-    mca.fit(data)
+    mca = MCA(
+        n_components=min(data.shape),  # Set the number of components to row/column space
+        n_iter=1,           # Set the number of iterations for the CA algorithm
+        copy=True,
+        check_input=True,
+        engine='sklearn',
+        random_state=42
+    )
+    mca = mca.fit(data)  # Fit MCA on the dataframe
+
     return mca
 
 def run_densmap_hdbscan(data):
