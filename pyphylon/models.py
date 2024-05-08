@@ -150,12 +150,12 @@ def run_polytope_vertex_group_extraction(
         core_dist_n_jobs=8
     ):
     """
-    Run DensMAP followed by HDBSCAN on the (binary) dataset (describing a polytope).
+    Run DensMAP + HDBSCAN on the (binary) dataset (describing a polytope).
 
     Parameters:
     - data: DataFrame containing the dataset to be analyzed.
     - low_memory: Boolean, passed onto UMAP to optimize memory usage.
-    - core_dist_n_jobs: Integer, number of parallel jobs for core distance calculations in UMAP.
+    - core_dist_n_jobs: Integer, num of jobs for core dist calcs in UMAP.
 
     Returns:
     - Cluster labels from HDBSCAN.
@@ -179,14 +179,19 @@ class NmfModel(object):
     Class representation of NMF models and their reconstructions w/metrics
     '''
 
-    def __init__(self, data: pd.DataFrame, ranks: Iterable, max_iter: int = 10_000):
+    def __init__(
+            self,
+            data: pd.DataFrame,
+            ranks: Iterable,
+            max_iter: int = 10_000
+        ):
         '''
-        Initialize the NmfModel object with required data matrix and rank list.
+        Initialize the NmfModel object w/ required data matrix and rank list.
 
         Parameters:
         - data: DataFrame on which NMF will be run
         - ranks: Iterable of ranks on which to perform NMF
-        - max_iter: Max num of iterations allowed for convergence, default 10_000
+        - max_iter: Integer, Max num of iters for convergence, default 10_000
         '''
 
         self._data = data
@@ -222,7 +227,11 @@ class NmfModel(object):
     def W_dict(self):
         '''Get a dictionary of raw W matrices across chosen ranks'''
         if not self._W_dict:
-            W_dict, H_dict = run_nmf(self._data, self._ranks, max_iter=self._max_iter)
+            W_dict, H_dict = run_nmf(
+                self._data,
+                self._ranks,
+                max_iter=self._max_iter
+            )
             self._W_dict = W_dict
             self._H_dict = H_dict
         
@@ -236,7 +245,11 @@ class NmfModel(object):
     def H_dict(self):
         '''Get a dictionary of raw H matrices across chosen ranks'''
         if not self._H_dict:
-            W_dict, H_dict = run_nmf(self._data, self._ranks, max_iter=self._max_iter)
+            W_dict, H_dict = run_nmf(
+                self._data,
+                self._ranks,
+                max_iter=self._max_iter
+            )
             self._W_dict = W_dict
             self._H_dict = H_dict
         
@@ -250,7 +263,11 @@ class NmfModel(object):
     def L_norm_dict(self):
         '''Get a dictionary of L matrices across chosen ranks'''
         if not self._L_norm_dict:
-            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self.data, self.W_dict, self.H_dict)
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(
+                self.data,
+                self.W_dict,
+                self.H_dict
+            )
             self._L_norm_dict = L_norm_dict
             self._A_norm_dict = A_norm_dict
         
@@ -264,7 +281,11 @@ class NmfModel(object):
     def A_norm_dict(self):
         '''Get a dictionary of A matrices across chosen ranks'''
         if not self._A_norm_dict:
-            L_norm_dict, A_norm_dict = normalize_nmf_outputs(self.data, self.W_dict, self.H_dict)
+            L_norm_dict, A_norm_dict = normalize_nmf_outputs(
+                self.data,
+                self.W_dict,
+                self.H_dict
+            )
             self._L_norm_dict = L_norm_dict
             self._A_norm_dict = A_norm_dict
         
@@ -278,7 +299,10 @@ class NmfModel(object):
     def L_binarized_dict(self):
         '''Get a dictionary of binarized L matrices across chosen ranks'''
         if not self._L_binarized_dict:
-            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self.L_norm_dict, self.A_norm_dict)
+            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
+                self.L_norm_dict,
+                self.A_norm_dict
+            )
             self._L_binarized_dict = L_binarized_dict
             self._A_binarized_dict = A_binarized_dict
         
@@ -292,7 +316,10 @@ class NmfModel(object):
     def A_binarized_dict(self):
         '''Get a dictionary of binarized A matrices across chosen ranks'''
         if not self._A_binarized_dict:
-            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(self.L_norm_dict, self.A_norm_dict)
+            L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
+                self.L_norm_dict,
+                self.A_norm_dict
+            )
             self._L_binarized_dict = L_binarized_dict
             self._A_binarized_dict = A_binarized_dict
         
@@ -304,16 +331,18 @@ class NmfModel(object):
     
     @property
     def P_reconstructed_dict(self):
-        '''Get a dictionary of the reconstructed data matrix from post-processed NMF'''
+        '''
+        Get a dictionary of the reconstructed data from post-processed NMF.
+        '''
         if not self._P_reconstructed_dict:
-            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+            reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
                 self.L_binarized_dict,
                 self.A_binarized_dict
             )
-            self._P_reconstructed_dict = P_reconstructed_dict
-            self._P_error_dict = P_error_dict
-            self._P_confusion_dict = P_confusion_dict
+            self._P_reconstructed_dict = reconstr
+            self._P_error_dict = error
+            self._P_confusion_dict = confusion
             
         return self._P_reconstructed_dict
     
@@ -323,16 +352,18 @@ class NmfModel(object):
     
     @property
     def P_error_dict(self):
-        '''Get a dictionary of the errors between orig and reconstr data matrices'''
+        '''
+        Get a dictionary of errors between orig and reconstr data matrices.
+        '''
         if not self._P_error_dict:
-            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+            reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
                 self.L_binarized_dict,
                 self.A_binarized_dict
             )
-            self._P_reconstructed_dict = P_reconstructed_dict
-            self._P_error_dict = P_error_dict
-            self._P_confusion_dict = P_confusion_dict
+            self._P_reconstructed_dict = reconstr
+            self._P_error_dict = error
+            self._P_confusion_dict = confusion
                 
         return self._P_error_dict
     
@@ -342,16 +373,18 @@ class NmfModel(object):
     
     @property
     def P_confusion_dict(self):
-        '''Get a dictionary of the confusion matrix between orig and reconstr data matrices'''
+        '''
+        Get a dictionary of the confusion matrix.
+        '''
         if not self._P_confusion_dict:
-            P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(
+            reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
                 self.L_binarized_dict,
                 self.A_binarized_dict
             )
-            self._P_reconstructed_dict = P_reconstructed_dict
-            self._P_error_dict = P_error_dict
-            self._P_confusion_dict = P_confusion_dict
+            self._P_reconstructed_dict = reconstr
+            self._P_error_dict = error
+            self._P_confusion_dict = confusion
         
         return self._P_confusion_dict
     
@@ -361,7 +394,9 @@ class NmfModel(object):
     
     @property
     def df_metrics(self):
-        '''Return a table of metrics for NMF model reconstructions across ranks'''
+        '''
+        Return a table of metrics for NMF model reconstructions across ranks.
+        '''
         if not self._df_metrics:
             df_metrics = calculate_nmf_reconstruction_metrics(
                 self.P_reconstructed_dict,
@@ -378,20 +413,24 @@ class NmfModel(object):
 # Helper functions
 def _k_means_binarize_L(L_norm):
     '''
-    Use k-means clustering (k=3) to binarize L_norm matrix
+    Use k-means clustering (k=3) to binarize L_norm matrix.
     '''
     
     # Initialize an empty array to hold the binarized matrix
     L_binarized = np.zeros_like(L_norm.values)
     
     # Loop through each column
-    for col_idx in trange(L_norm.values.shape[1], leave=False, desc='binarizing column by column...'):
+    for col_idx in trange(
+        L_norm.values.shape[1],
+        leave=False,
+        desc='binarizing column by column...'
+    ):
         column_data = L_norm.values[:, col_idx]
     
         # Reshape the column data to fit the KMeans input shape
         column_data_reshaped = column_data.reshape(-1, 1)
     
-        # Apply 3-means clustering (generally better precision-recall tradeoff than 2-means)
+        # Apply 3-means clustering (gen better P-R tradeoff than 2-means)
         kmeans = KMeans(n_clusters=3, random_state=0, n_init='auto')
         kmeans.fit(column_data_reshaped)
         labels = kmeans.labels_
@@ -407,25 +446,33 @@ def _k_means_binarize_L(L_norm):
         L_binarized[:, col_idx] = binarized_column
     
     # Typecast to DataFrame
-    L_binarized = pd.DataFrame(L_binarized, index=L_norm.index, columns=L_norm.columns)
+    L_binarized = pd.DataFrame(
+        L_binarized,
+        index=L_norm.index,
+        columns=L_norm.columns
+    )
     return L_binarized
 
 
 def _k_means_binarize_A(A_norm):
     '''
-    Use k-means clustering (k=3) to binarize A_norm matrix
+    Use k-means clustering (k=3) to binarize A_norm matrix.
     '''
     # Initialize an empty array to hold the binarized matrix
     A_binarized = np.zeros_like(A_norm.values)
     
     # Loop through each row
-    for row_idx in trange(A_norm.values.shape[0], leave=False, desc='binarizing row by row...'):
+    for row_idx in trange(
+        A_norm.values.shape[0],
+        leave=False,
+        desc='binarizing row by row...'
+    ):
         row_data = A_norm.values[row_idx, :]
     
         # Reshape the row data to fit the KMeans input shape
         row_data_reshaped = row_data.reshape(-1, 1)
     
-        # Apply 3-means clustering (generally better precision-recall tradeoff than 2-means)
+        # Apply 3-means clustering (gen better P-R tradeoff than 2-means)
         kmeans = KMeans(n_clusters=3, random_state=0, n_init='auto')
         kmeans.fit(row_data_reshaped)
         labels = kmeans.labels_
@@ -441,7 +488,11 @@ def _k_means_binarize_A(A_norm):
         A_binarized[row_idx, :] = binarized_row
     
     # Typecast to DataFrame
-    A_binarized = pd.DataFrame(A_binarized, index=A_norm.index, columns=A_norm.columns)
+    A_binarized = pd.DataFrame(
+        A_binarized,
+        index=A_norm.index,
+        columns=A_norm.columns
+    )
     return A_binarized
 
 def _calculate_nmf_reconstruction(data, L_binarized, A_binarized):
@@ -456,7 +507,7 @@ def _calculate_nmf_reconstruction(data, L_binarized, A_binarized):
     # Calculate the error matrix
     P_error = data - P_reconstructed
     
-    # Binarize the original and reconstructed matrices for confusion matrix calculation
+    # Binarize the orig and reconstr matrices for confusion matrix calculation
     data_binary = (data.values > 0).astype('int8')
     P_reconstructed_binary = (P_reconstructed.values > 0).astype('int8')
     
@@ -470,7 +521,11 @@ def _calculate_nmf_reconstruction(data, L_binarized, A_binarized):
     # False Positive (FP): actual is false, but predicted is true
     # True Negative (TN): both actual and predicted are false
     # False Negative (FN): actual is true, but predicted is false
-    P_confusion = confusion_matrix(data_flat, P_reconstructed_flat, labels=[1, 0])
+    P_confusion = confusion_matrix(
+        data_flat,
+        P_reconstructed_flat,
+        labels=[1, 0]
+    )
     
     return P_reconstructed, P_error, P_confusion
 
@@ -488,12 +543,13 @@ def _calculate_metrics(P_confusion):
     # Calculations
     Precision = TP / (TP + FP) if TP + FP != 0 else 0
     Recall = TP / (TP + FN) if TP + FN != 0 else 0
+    P_plus_R = Precision + Recall
     FPR = FP / (FP + TN) if FP + TN != 0 else 0
     FNR = FN / (TP + FN) if TP + FN != 0 else 0
     Specificity = TN / (TN + FP) if TN + FP != 0 else 0
     Prevalence = (TP + FN) / (TP + TN + FP + FN)
     Accuracy = (TP + TN) / (TP + TN + FP + FN)
-    F1_score = 2 * (Precision * Recall) / (Precision + Recall) if Precision + Recall != 0 else 0
+    F1_score = 2 * (Precision * Recall) / (P_plus_R) if P_plus_R != 0 else 0
     BM = Recall + Specificity - 1
 
     # Adjusted MCC calculation to avoid overflow
@@ -502,7 +558,12 @@ def _calculate_metrics(P_confusion):
     MCC = numerator / denominator if denominator != 0 else 0
 
     Jaccard_index = TP / (TP + FP + FN) if TP + FP + FN != 0 else 0
-    Prevalence_Threshold = (np.sqrt(Recall * (1 - Specificity)) + Specificity - 1) / (Recall + Specificity - 1) if Recall + Specificity - 1 != 0 else 0
+    one_minus_Sp = 1 - Specificity
+    if BM != 0:
+        PT = (np.sqrt(Recall * one_minus_Sp) + Specificity - 1) / (BM)
+    else:
+        PT = 0
+    Prevalence_Threshold = PT
     
     return {
         'Precision': Precision,
