@@ -176,7 +176,7 @@ def run_polytope_vertex_group_extraction(
 
     embedding = densmap.fit_transform(data)
 
-    # Define ranges for HDBSCAN parameters
+    # Define ranges for HDBSCAN parameters to tune
     max_size = 0.05 * min(data.shape)
     if max_size < 100:
         max_size = 100
