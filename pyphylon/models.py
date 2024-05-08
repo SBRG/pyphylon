@@ -1,5 +1,5 @@
 '''
-Functions for handling NMF and MCA models of pangenome data
+Functions for handling dimension-reduction models of pangenome data
 '''
 
 from typing import Iterable
