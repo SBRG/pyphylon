@@ -8,12 +8,33 @@ from typing import Iterable
 from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
 from sklearn.cluster import KMeans
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, silhouette_score
 from prince import MCA
 from umap import UMAP
 from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
+
+# Static methods
+def run_mca(data):
+    """
+    Run Multiple Correspondence Analysis (MCA) on the dataset.
+
+    Parameters:
+    - data: DataFrame containing the dataset to be analyzed.
+
+    Returns:
+    - MCA fitted model.
+    """
+    mca = MCA(
+        n_components=min(data.shape),
+        n_iter=1,
+        copy=True,
+        check_input=True,
+        engine='sklearn',
+        random_state=42
+    )
+    return mca.fit(data)
 
 def run_nmf(data, ranks, max_iter=10_000):
     """
@@ -124,33 +145,16 @@ def calculate_nmf_reconstruction_metrics(
 
     return df_metrics
 
-def run_mca(data):
-    """
-    Run Multiple Correspondence Analysis (MCA) on the dataset.
-
-    Parameters:
-    - data: DataFrame containing the dataset to be analyzed.
-
-    Returns:
-    - MCA fitted model.
-    """
-    mca = MCA(
-        n_components=min(data.shape),
-        n_iter=1,
-        copy=True,
-        check_input=True,
-        engine='sklearn',
-        random_state=42
-    )
-    return mca.fit(data)
-
 def run_polytope_vertex_group_extraction(
         data,
         low_memory=False,
         core_dist_n_jobs=8
     ):
     """
-    Run DensMAP + HDBSCAN on the (binary) dataset (describing a polytope).
+    Run DensMAP + HDBSCAN on the (polytopic) dataset.
+
+    Note: Polytopic dataset means the column vectors of data
+    lie on the vertex of a polytope (e.g. hypercube)
 
     Parameters:
     - data: DataFrame containing the dataset to be analyzed.
@@ -169,10 +173,53 @@ def run_polytope_vertex_group_extraction(
         densmap=True,
         low_memory=low_memory
     )
-    # TODO: add in sensitivity analysis here
+
     embedding = densmap.fit_transform(data)
-    clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
-    return clusterer.fit_predict(embedding)
+
+    # Define ranges for HDBSCAN parameters
+    max_size = 0.05 * min(data.shape)
+    if max_size < 100:
+        max_size = 100
+    
+    min_cluster_sizes = np.linspace(start=5, stop=max_size, num=5).astype(int)
+    min_samples_range = np.linspace(start=5, stop=max_size, num=5).astype(int)
+
+    best_score = -1
+    best_relative_validity = -1
+    return_dict = {}
+    
+    # Iterate over combinations of min_cluster_size and min_samples
+    for min_cluster_size in tqdm(
+        min_cluster_sizes,
+        desc='Tuning over various cluster sizes'
+    ):
+        for min_samples in tqdm(
+            min_samples_range,
+            desc='Tuning over various sample sizes',
+            leave=False
+        ):
+            clusterer = HDBSCAN(
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples,
+                metric='euclidean'
+            )
+            labels = clusterer.fit_predict(embedding)
+
+            # Evaluate clustering if more than one cluster and noise (-1) is less prevalent
+            if len(set(labels)) > 1 and np.count_nonzero(labels != -1) / len(labels) > 0.5:
+                score = silhouette_score(embedding, labels)
+
+                if clusterer.relative_validity_ > best_relative_validity:
+                    return_dict = {
+                        'min_cluster_size': min_cluster_size,
+                        'min_samples': min_samples,
+                        'silhouette_score': score,
+                        'best_model': clusterer
+                    }
+            else:
+                continue
+    
+    return return_dict
 
 class NmfModel(object):
     '''
