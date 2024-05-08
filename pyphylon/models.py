@@ -1,17 +1,17 @@
-'''
-Functions for handling dimension-reduction models of pangenome data
-'''
+"""
+Functions for handling dimension-reduction models of pangenome data.
+"""
 
-from typing import Iterable
-from hdbscan import HDBSCAN
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
+from typing import Iterable
+from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
+from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix
 from prince import MCA
 from umap import UMAP
-from tqdm.notebook import tqdm, trange
+from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
 
@@ -19,81 +19,98 @@ def run_nmf(data, ranks, max_iter=10_000):
     """
     Run NMF multiple times and possibly across multiple ranks.
 
-    :param data: DataFrame containing the dataset to be analyzed.
-    :param ranks: List of ranks (components) to try.
-    :param max_iter: Max number of iterations to try to reach convergence.
-    :return W_dict: A dictionary of transformed data at various ranks.
-    :return H_dict: A dictionary of model components at various ranks.
-    """
-    W_dict = {}
-    H_dict = {}
+    Parameters:
+    - data: DataFrame containing the dataset to be analyzed.
+    - ranks: List of ranks (components) to try.
+    - max_iter: Maximum number of iterations to try to reach convergence.
 
-    # Perform NMF for each rank in ranks
+    Returns:
+    - W_dict: A dictionary of transformed data at various ranks.
+    - H_dict: A dictionary of model components at various ranks.
+    """
+    W_dict, H_dict = {}, {}
+
     for rank in tqdm(ranks, desc='Running NMF at varying ranks...'):
-        
-        model = NMF(n_components=rank,
-                    init='nndsvd',      # Run NMF with NNDSVD initialization (for sparsity)
-                    max_iter=max_iter,
-                    random_state=42
-                    )
-        
+        model = NMF(
+            n_components=rank,
+            init='nndsvd',
+            max_iter=max_iter,
+            random_state=42
+        )
         W = model.fit_transform(data)
         H = model.components_
-        reconstruction = np.dot(W, H)
-        error = np.linalg.norm(data - reconstruction, 'fro')  # Calculate the Frobenius norm of the difference
-
-        # Store the best W and H matrices in the dictionaries with the rank as the key
         W_dict[rank] = W
         H_dict[rank] = H
 
-        return W_dict, H_dict
+    return W_dict, H_dict
 
 def normalize_nmf_outputs(data, W_dict, H_dict):
-    '''
-    Normalize NMF outputs (99th perctentile of W, column-by-column)
-    '''
-    L_norm_dict = {}
-    A_norm_dict = {}
+    """
+    Normalize NMF outputs (99th percentile of W, column-by-column).
 
-    for rank, matrix in tqdm(W_dict.items(), desc='Normalizing matrices...'):
-        D1, D2 = _get_normalization_diagonals(pd.DataFrame(matrix))
-        
-        L_norm_dict[rank] = pd.DataFrame(np.dot(W_dict[rank], D1), index=data.index)
-        A_norm_dict[rank] = pd.DataFrame(np.dot(D2, H_dict[rank]), columns=data.columns)
-    
+    Parameters:
+    - data: Original dataset used for NMF.
+    - W_dict: Dictionary containing W matrices.
+    - H_dict: Dictionary containing H matrices.
+
+    Returns:
+    - L_norm_dict: Normalized L matrices.
+    - A_norm_dict: Normalized A matrices.
+    """
+    L_norm_dict, A_norm_dict = {}, {}
+    for rank, W in tqdm(W_dict.items(), desc='Normalizing matrices...'):
+        H = H_dict[rank]
+        D1, D2 = _get_normalization_diagonals(pd.DataFrame(W))
+        L_norm_dict[rank] = pd.DataFrame(np.dot(W, D1), index=data.index)
+        A_norm_dict[rank] = pd.DataFrame(np.dot(D2, H), columns=data.columns)
     return L_norm_dict, A_norm_dict
 
 def binarize_nmf_outputs(L_norm_dict, A_norm_dict):
-    '''
-    Binarize NMF outputs (k-means clustering, k=3, top cluster only)
-    '''
-    L_binarized_dict = {}
-    A_binarized_dict = {}
+    """
+    Binarize NMF outputs using k-means clustering (k=3, top cluster only).
 
-    for rank in tqdm(L_norm_dict , desc='Binarizing matrices...'):
+    Parameters:
+    - L_norm_dict: Dictionary of normalized L matrices.
+    - A_norm_dict: Dictionary of normalized A matrices.
+
+    Returns:
+    - L_binarized_dict: Binarized L matrices.
+    - A_binarized_dict: Binarized A matrices.
+    """
+    L_binarized_dict, A_binarized_dict = {}, {}
+    for rank in tqdm(L_norm_dict, desc='Binarizing matrices...'):
         L_binarized_dict[rank] = _k_means_binarize_L(L_norm_dict[rank])
         A_binarized_dict[rank] = _k_means_binarize_A(A_norm_dict[rank])
-    
     return L_binarized_dict, A_binarized_dict
 
 def generate_nmf_reconstructions(data, L_binarized_dict, A_binarized_dict):
     '''
-    Calculate the model reconstruction, error, and confusion matrix for each L & A decomposition
+    Calculate model reconstr, error, & confusion matrix for each L_bin & A_bin
     '''
     P_reconstructed_dict = {}
     P_error_dict = {}
     P_confusion_dict = {}
 
-    for rank in tqdm(L_binarized_dict, desc='Evaluating model reconstructions...'):
-        P_reconstructed_dict[rank], P_error_dict[rank], P_confusion_dict[rank] = _calculate_nmf_reconstruction(
+    for rank in tqdm(
+        L_binarized_dict,
+        desc='Evaluating model reconstructions...'
+    ):
+        reconstr, err, confusion = _calculate_nmf_reconstruction(
             data,
             L_binarized_dict[rank],
             A_binarized_dict[rank]
         )
+
+        P_reconstructed_dict[rank] = reconstr
+        P_error_dict[rank] = err
+        P_confusion_dict[rank] = confusion
     
     return P_reconstructed_dict, P_error_dict, P_confusion_dict
 
-def calculate_nmf_reconstruction_metrics(P_reconstructed_dict, P_confusion_dict):
+def calculate_nmf_reconstruction_metrics(
+        P_reconstructed_dict,
+        P_confusion_dict
+    ):
     '''
     Calculate all reconstruction metrics from the generated confusion matrix
     '''
@@ -111,45 +128,51 @@ def run_mca(data):
     """
     Run Multiple Correspondence Analysis (MCA) on the dataset.
 
-    :param data: DataFrame containing the dataset to be analyzed.
-    :return: MCA fitted model.
+    Parameters:
+    - data: DataFrame containing the dataset to be analyzed.
+
+    Returns:
+    - MCA fitted model.
     """
     mca = MCA(
-        n_components=min(data.shape),  # Set the number of components to row/column space
-        n_iter=1,           # Set the number of iterations for the CA algorithm
+        n_components=min(data.shape),
+        n_iter=1,
         copy=True,
         check_input=True,
         engine='sklearn',
         random_state=42
     )
-    mca = mca.fit(data)  # Fit MCA on the dataframe
+    return mca.fit(data)
 
-    return mca
-
-def run_polytope_vertex_group_extraction(data, low_memory=False, core_dist_n_jobs=8):
+def run_polytope_vertex_group_extraction(
+        data,
+        low_memory=False,
+        core_dist_n_jobs=8
+    ):
     """
     Run DensMAP followed by HDBSCAN on the (binary) dataset (describing a polytope).
 
-    :param data: DataFrame containing the dataset to be analyzed.
-    :param low_memory: bool to be passed onto UMAP.
-    :param core_dist_n_jobs: int to be passed onto UMAP.
-    :return: Cluster labels from HDBSCAN.
+    Parameters:
+    - data: DataFrame containing the dataset to be analyzed.
+    - low_memory: Boolean, passed onto UMAP to optimize memory usage.
+    - core_dist_n_jobs: Integer, number of parallel jobs for core distance calculations in UMAP.
+
+    Returns:
+    - Cluster labels from HDBSCAN.
     """
     densmap = UMAP(
-        n_components=3,     # Reduce n-cube to 3 dimensions
-        n_neighbors=0.01 * min(data.shape), # local/global structure tradeoff
+        n_components=3,
+        n_neighbors=0.01 * min(data.shape),
         metric='cosine',
         min_dist=0.0,
         random_state=42,
-        densmap=True, # Ensure density-preservation variant is used
+        densmap=True,
         low_memory=low_memory
     )
-    # TODO: Add in hyperparameter tuning for min_cluster_size
-    # and for min_samples. Will need to add helper functions
+    # TODO: add in sensitivity analysis here
     embedding = densmap.fit_transform(data)
     clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
-    labels = clusterer.fit_predict(embedding)
-    return labels
+    return clusterer.fit_predict(embedding)
 
 class NmfModel(object):
     '''
