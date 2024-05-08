@@ -3,9 +3,10 @@ Functions for handling NMF and MCA models of pangenome data
 '''
 
 from typing import Iterable
+from hdbscan import HDBSCAN
 import numpy as np
 import pandas as pd
-from sklearn.cluster import HDBSCAN, KMeans
+from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF
 from sklearn.metrics import confusion_matrix
 from prince import MCA
