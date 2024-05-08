@@ -126,14 +126,26 @@ def run_mca(data):
 
     return mca
 
-def run_densmap_hdbscan(data):
+def run_polytope_vertex_group_extraction(data, low_memory=False, core_dist_n_jobs=8):
     """
-    Run DensMAP followed by HDBSCAN on the dataset.
+    Run DensMAP followed by HDBSCAN on the (binary) dataset (describing a polytope).
 
     :param data: DataFrame containing the dataset to be analyzed.
+    :param low_memory: bool to be passed onto UMAP.
+    :param core_dist_n_jobs: int to be passed onto UMAP.
     :return: Cluster labels from HDBSCAN.
     """
-    densmap = UMAP(n_components=2, n_neighbors=30, min_dist=0.0, metric='euclidean', random_state=42, densmap=True)
+    densmap = UMAP(
+        n_components=3,     # Reduce n-cube to 3 dimensions
+        n_neighbors=0.01 * min(data.shape), # local/global structure tradeoff
+        metric='cosine',
+        min_dist=0.0,
+        random_state=42,
+        densmap=True, # Ensure density-preservation variant is used
+        low_memory=low_memory
+    )
+    # TODO: Add in hyperparameter tuning for min_cluster_size
+    # and for min_samples. Will need to add helper functions
     embedding = densmap.fit_transform(data)
     clusterer = HDBSCAN(min_cluster_size=15, metric='euclidean')
     labels = clusterer.fit_predict(embedding)
