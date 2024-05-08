@@ -410,6 +410,7 @@ class NmfModel(object):
     def df_metrics(self, new_dict):
          self.df_metrics = new_dict
 
+
 # Helper functions
 def _k_means_binarize_L(L_norm):
     '''
@@ -452,7 +453,6 @@ def _k_means_binarize_L(L_norm):
         columns=L_norm.columns
     )
     return L_binarized
-
 
 def _k_means_binarize_A(A_norm):
     '''
