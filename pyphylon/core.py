@@ -19,7 +19,8 @@ class NmfData(object):
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
-        F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None, **kwargs
+        F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
+        nmf: Optional[NmfModel], **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
@@ -37,7 +38,8 @@ class NmfData(object):
         - U_bin: Optional DataFrame for binary version of U_norm.
         - F_norm: Optional DataFrame for F normalization linked with V.
         - F_bin: Optional DataFrame for binary version of F_norm.
-        - mca: Optional MCA model for optimal rank determination
+        - mca: Optional MCA model for optimal rank determination.
+        - nmf: Optional NmfModel of results from running optimal rank determination.
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
@@ -52,6 +54,7 @@ class NmfData(object):
         self._U_bin = U_bin
         self._F_norm = F_norm
         self._F_bin = F_bin
+        self._mca = mca
         self.kwargs = kwargs
         self.validate_data()
 

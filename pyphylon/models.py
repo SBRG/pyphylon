@@ -106,6 +106,25 @@ def calculate_nmf_reconstruction_metrics(P_reconstructed_dict, P_confusion_dict)
 
     return df_metrics
 
+def run_mca(data):
+    """
+    Run Multiple Correspondence Analysis (MCA) on the dataset.
+
+    :param data: DataFrame containing the dataset to be analyzed.
+    :return: MCA fitted model.
+    """
+    mca = MCA(
+        n_components=min(data.shape),  # Set the number of components to row/column space
+        n_iter=1,           # Set the number of iterations for the CA algorithm
+        copy=True,
+        check_input=True,
+        engine='sklearn',
+        random_state=42
+    )
+    mca = mca.fit(data)  # Fit MCA on the dataframe
+
+    return mca
+
 class NmfModel(object):
     '''
     Class representation of NMF models and their reconstructions w/metrics
@@ -306,26 +325,6 @@ class NmfModel(object):
     @df_metrics.setter
     def df_metrics(self, new_dict):
          self.df_metrics = new_dict
-
-
-def run_mca(data):
-    """
-    Run Multiple Correspondence Analysis (MCA) on the dataset.
-
-    :param data: DataFrame containing the dataset to be analyzed.
-    :return: MCA fitted model.
-    """
-    mca = MCA(
-        n_components=min(data.shape),  # Set the number of components to row/column space
-        n_iter=1,           # Set the number of iterations for the CA algorithm
-        copy=True,
-        check_input=True,
-        engine='sklearn',
-        random_state=42
-    )
-    mca = mca.fit(data)  # Fit MCA on the dataframe
-
-    return mca
 
 def run_densmap_hdbscan(data):
     """
