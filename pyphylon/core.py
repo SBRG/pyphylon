@@ -20,7 +20,7 @@ class NmfData(object):
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
         F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
-        nmf: Optional[NmfModel] = None, **kwargs
+        nmf: Optional[NmfModel] = None, pvge: Optional[dict] = None, **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
@@ -40,6 +40,7 @@ class NmfData(object):
         - F_bin: Optional DataFrame for binary version of F_norm.
         - mca: Optional MCA model for optimal rank determination.
         - nmf: Optional NmfModel of results from running optimal rank determination.
+        - pvge: Optional dictionary of results + clustering from running PVGE
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
