@@ -15,7 +15,7 @@ from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
 
-# Static methods
+# Multiple Corresspondence Analysis (MCA)
 def run_mca(data):
     """
     Run Multiple Correspondence Analysis (MCA) on the dataset.
@@ -36,6 +36,7 @@ def run_mca(data):
     )
     return mca.fit(data)
 
+# Non-negative Matrix Factorization (NMF)
 def run_nmf(data, ranks, max_iter=10_000):
     """
     Run NMF multiple times and possibly across multiple ranks.
@@ -145,6 +146,7 @@ def calculate_nmf_reconstruction_metrics(
 
     return df_metrics
 
+# Polytope Vertex Group Extraction (PVGE)
 def run_polytope_vertex_group_extraction(
         data,
         low_memory=False,
@@ -221,6 +223,7 @@ def run_polytope_vertex_group_extraction(
     
     return return_dict
 
+# Container for NMF models for easy loading into NmfData
 class NmfModel(object):
     '''
     Class representation of NMF models and their reconstructions w/metrics
