@@ -185,8 +185,7 @@ def run_polytope_vertex_group_extraction(
     
     min_cluster_sizes = np.linspace(start=5, stop=max_size, num=5).astype(int)
     min_samples_range = np.linspace(start=5, stop=max_size, num=5).astype(int)
-
-    best_score = -1
+    
     best_relative_validity = -1
     return_dict = {}
     
