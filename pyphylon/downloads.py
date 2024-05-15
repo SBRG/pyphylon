@@ -6,8 +6,6 @@ import os
 import ftplib
 from Bio import Entrez
 
-from pyphylon.util
-
 # Directory locations
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
 GENOME_SUMMARY_DIR = os.path.join(DATA_DIR, 'genome_summary')
