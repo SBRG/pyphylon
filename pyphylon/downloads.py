@@ -10,6 +10,7 @@ from Bio import Entrez
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
 GENOME_SUMMARY_DIR = os.path.join(DATA_DIR, 'genome_summary')
 GENOME_METADATA_DIR = os.path.join(DATA_DIR, 'genome_metadata')
+PATRIC_GENOME_AMR_DIR = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
 
 def download_bvbrc_genome_info_files(force=False):
     """
@@ -79,3 +80,4 @@ def _ensure_directories_exist():
     """
     os.makedirs(GENOME_SUMMARY_DIR, exist_ok=True)
     os.makedirs(GENOME_METADATA_DIR, exist_ok=True)
+    os.makedirs(PATRIC_GENOME_AMR_DIR, exist_ok=True)
