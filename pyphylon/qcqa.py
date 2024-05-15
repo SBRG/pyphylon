@@ -5,9 +5,6 @@ Functions for quality control and quality assurance of genomic data.
 import os
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import seaborn as sns
-from matplotlib import pyplot as plt
 from kneebow.rotor import Rotor
 
 
