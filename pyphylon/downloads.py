@@ -7,7 +7,7 @@ import ftplib
 from Bio import Entrez
 
 # Directory locations
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'metadata')
 GENOME_SUMMARY_DIR = os.path.join(DATA_DIR, 'genome_summary')
 GENOME_METADATA_DIR = os.path.join(DATA_DIR, 'genome_metadata')
 PATRIC_GENOME_AMR_DIR = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
