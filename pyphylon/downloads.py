@@ -11,7 +11,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data'
 GENOME_SUMMARY_DIR = os.path.join(DATA_DIR, 'genome_summary')
 GENOME_METADATA_DIR = os.path.join(DATA_DIR, 'genome_metadata')
 
-def download_bvbrc_genome_files(force=False):
+def download_bvbrc_genome_info_files(force=False):
     """
     Download genome summary, genome metadata, and PATRIC_genome_AMR files
     from BV-BRC. If files already exist, they will not be downloaded unless
