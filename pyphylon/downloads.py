@@ -72,11 +72,10 @@ def download_from_ncbi(query, save_path, email='your_email@example.com'):
         with open(save_path, 'w') as f:
             f.write(handle.read())
 
-# Helper functions
-def _ensure_directories_exist(GENOME_SUMMARY_DIR, GENOME_METADATA_DIR):
+# Helper function
+def _ensure_directories_exist():
     """
     Ensure that necessary directories exist.
     """
     os.makedirs(GENOME_SUMMARY_DIR, exist_ok=True)
     os.makedirs(GENOME_METADATA_DIR, exist_ok=True)
-
