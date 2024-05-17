@@ -2,23 +2,32 @@
 Functions for building a pangenome for phylon analysis.
 '''
 
-import os
-import pickle
+import os, shutil, urllib.request, urllib.parse, urllib.error
+import subprocess as sp
+import hashlib 
+import collections
 
 import pandas as pd
+import numpy as np
+import scipy.sparse
+
 from tqdm.notebook import tqdm
+
+CLUSTER_TYPES = {'cds':'C', 'noncoding':'T'}
+VARIANT_TYPES = {'allele':'A', 'upstream':'U', 'downstream':'D'}
+CLUSTER_TYPES_REV = {v:k for k,v in list(CLUSTER_TYPES.items())}
+VARIANT_TYPES_REV = {v:k for k,v in list(VARIANT_TYPES.items())}
+DNA_COMPLEMENT = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
+              'W': 'W', 'S': 'S', 'R': 'Y', 'Y': 'R', 
+              'M': 'K', 'K': 'M', 'N': 'N'}
+for bp in list(DNA_COMPLEMENT.keys()):
+    DNA_COMPLEMENT[bp.lower()] = DNA_COMPLEMENT[bp].lower()
 
 ###################################
 #              CD-HIT             #
 ###################################
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+
 """
-Created on Thu Mar 12 10:18:29 2020
-Modified by @siddC to make it work for pandas v2+
-
-@author: jhyun95
-
 Pan-genome construction tools including consolidating redundant sequences,
 gene sequence cluster identification by CD-Hit, and constructing gene/allele tables.
 Refer to build_cds_pangenome() and build_upstream_pangenome().
@@ -31,28 +40,6 @@ Pan-genome feature nomenclature:
 <name>_T# = Non-coding transcript/RNA cluster
 <name>_T#A# = Noncoding transcript/RNA sequence variant
 """
-
-import os, shutil, urllib.request, urllib.parse, urllib.error
-import subprocess as sp
-import hashlib 
-import collections
-
-import pandas as pd
-import numpy as np
-import scipy.sparse
-
-from tqdm.notebook import tqdm # added for progress bar
-
-CLUSTER_TYPES = {'cds':'C', 'noncoding':'T'}
-VARIANT_TYPES = {'allele':'A', 'upstream':'U', 'downstream':'D'}
-CLUSTER_TYPES_REV = {v:k for k,v in list(CLUSTER_TYPES.items())}
-VARIANT_TYPES_REV = {v:k for k,v in list(VARIANT_TYPES.items())}
-DNA_COMPLEMENT = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
-              'W': 'W', 'S': 'S', 'R': 'Y', 'Y': 'R', 
-              'M': 'K', 'K': 'M', 'N': 'N'}
-for bp in list(DNA_COMPLEMENT.keys()):
-    DNA_COMPLEMENT[bp.lower()] = DNA_COMPLEMENT[bp].lower()
-
     
 def build_cds_pangenome(genome_faa_paths, output_dir, name='Test', 
                         cdhit_args={'-n':5, '-c':0.8}, 
