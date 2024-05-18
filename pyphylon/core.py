@@ -14,7 +14,8 @@ class NmfData(object):
     """
     
     def __init__(
-        self, P: pd.DataFrame, genome_table: Optional[pd.DataFrame], gene_table: Optional[pd.DataFrame],
+        self, P: pd.DataFrame, genome_table: Optional[pd.DataFrame],
+        gene_table: Optional[pd.DataFrame], phylon_table: Optional[pd.DataFrame],
         L_norm: Optional[pd.DataFrame] = None, L_bin: Optional[pd.DataFrame] = None,
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
@@ -29,6 +30,7 @@ class NmfData(object):
         - P: DataFrame with genes as rows and strains/genomes as columns.
         - genome_table: Optional DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
         - gene_table: Optional DataFrame with functional annotations for all genes in the pangenome
+        - phylon_table: Optional DataFrame with annotations of phylons
         - L_norm: Optional DataFrame for L normalization.
         - L_bin: Optional DataFrame for binary version of L_norm.
         - A_norm: Optional DataFrame for A normalization.
@@ -46,6 +48,7 @@ class NmfData(object):
         self._P = P
         self._genome_table = genome_table
         self._gene_table = gene_table
+        self._phylon_table = phylon_table
         self._L_norm = L_norm
         self._L_bin = L_bin
         self._A_norm = A_norm
@@ -147,7 +150,7 @@ class NmfData(object):
     
     @property
     def gene_table(self):
-        '''Get the gene annotations'''
+        '''Get the gene annotations.'''
         return self._gene_table
     
     @gene_table.setter
@@ -157,4 +160,18 @@ class NmfData(object):
         # other code...
         # Set the gene annotations
         # self._gene_table = gene_table
+        pass
+
+    @property
+    def phylon_table(self, table):
+        '''Get the phylon table.'''
+        return self._phylon_table
+    
+    @phylon_table.setter
+    def phylon_table(self, table):
+        #TODO: implement this setter
+        # genome_table = _check_table(table)
+        # other code...
+        # set the phylon table
+        # self._phylon_table = phylon_table
         pass
