@@ -7,7 +7,7 @@ import pandas as pd
 import prince
 
 import pyphylon.models as models
-from .util import _validate_identical_shapes, _validate_decomposition_shapes
+from .util import _validate_identical_shapes, _validate_decomposition_shapes, _check_and_convert_binary_sparse
 
 class NmfData(object):
     """
@@ -67,35 +67,34 @@ class NmfData(object):
         """
         Validate the correctness of the inputs based on the provided specifications.
         """
-        # Validate P matrix is binary
-        if not self._P.astype('int8').isin([0, 1]).all().all():
-            raise ValueError("The DataFrame is not binary. It contains values other than 0 / 1 or False / True.")
+        # Validate P matrix
+        self._P = _check_and_convert_binary_sparse(self._P)
         
-        # Ensure P matrix is stored as a SparseDtype of int8
-        cond1 = all(pd.api.types.is_sparse(self._P[col]) for col in self._P.columns)
-        cond2 = self._P.dtypes.unique().tolist() != [pd.SparseDtype("int8", 0)]
-
-        if not cond1 or cond2:
-            self._P = self._P.astype(pd.SparseDtype("int8", 0))
-        
-        # 
+        # Validate L and A matrices if provided
         if self._L_norm is not None and self._A_norm is not None:
             _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm, 'P', 'L_norm', 'A_norm')
             if self._L_bin:
                 _validate_identical_shapes(self._L_norm, self._L_bin, 'L_norm', 'L_bin')
+                self._L_bin = _check_and_convert_binary_sparse(self._L_bin)
             if self._A_bin:
                 _validate_identical_shapes(self._A_norm, self._A_bin, 'A_norm', 'A_bin')
+                self._A_bin = _check_and_convert_binary_sparse(self._A_bin)
         
+        # Validate V matrix if provided
         if self._V:
             if self._V.shape[1] != self._P.shape[1]:
                 raise ValueError("Columns in V must match the columns in P.")
-
+            self._V = _check_and_convert_binary_sparse(self._V)
+        
+        # Validate U and F matrices if provided
         if self._V is not None and self._U_norm is not None and self._F_norm is not None:
             _validate_decomposition_shapes(self._V, self._U_norm, self._F_norm, 'V', 'U_norm', 'F_norm')
             if self._U_bin:
                 _validate_identical_shapes(self._U_norm, self._U_bin, 'U_norm', 'U_bin')
+                self._U_bin = _check_and_convert_binary_sparse(self._U_bin)
             if self._F_bin:
                 _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
+                self._F_bin = _check_and_convert_binary_sparse(self._F_bin)
 
     @property
     def P(self):

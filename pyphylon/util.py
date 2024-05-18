@@ -28,6 +28,20 @@ def _validate_decomposition_shapes(input_mat, output1, output2, input_name, outp
             f"Dimension mismatch. Number of columns in {output1_name} {output1.shape} must match number of rows in {output2_name} {output2.shape}."
         )
 
+def _check_and_convert_binary_sparse(df: pd.DataFrame):
+    # Validate P matrix is binary
+    if not df.astype('int8').isin([0, 1]).all().all():
+        raise ValueError("The DataFrame is not binary. It contains values other than 0 / 1 or False / True.")
+
+    # Ensure P matrix is stored as a SparseDtype of int8
+    cond1 = all(pd.api.types.is_sparse(df[col]) for col in df.columns)
+    cond2 = df.dtypes.unique().tolist() != [pd.SparseDtype("int8", 0)]
+
+    if not cond1 or cond2:
+        df = df.astype(pd.SparseDtype("int8", 0))
+    
+    return df
+
 # NMF normalization #
 
 def _get_normalization_diagonals(W):
