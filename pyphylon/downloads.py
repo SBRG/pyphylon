@@ -14,6 +14,7 @@ PATRIC_GENOME_AMR_DIR = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
 
 
 # TODO: Add in checks from 1b and deduplication
+# TODO: Add in functions to download selected strains
 
 def download_bvbrc_genome_info_files(force=False):
     """
