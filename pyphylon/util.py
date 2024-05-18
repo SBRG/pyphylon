@@ -34,14 +34,15 @@ def _check_and_convert_binary_sparse(df: pd.DataFrame):
         raise ValueError("The DataFrame is not binary. It contains values other than 0 / 1 or False / True.")
 
     # Ensure matrix is stored as a SparseDtype of int8
-    df = _convert_sparse(df)    
+    df = _convert_sparse(df)   
+    
     return df
 
 def _convert_sparse(df: pd.DataFrame):
     # Ensure matrix is stored as a SparseDtype of int8
     cond1 = all(pd.api.types.is_sparse(df[col]) for col in df.columns)
     cond2 = df.dtypes.unique().tolist() != [pd.SparseDtype("int8", 0)]
-    
+
     if not cond1 or cond2:
         df = df.astype(pd.SparseDtype("int8", 0))
     

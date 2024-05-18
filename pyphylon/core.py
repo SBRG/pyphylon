@@ -6,8 +6,13 @@ from typing import Optional
 import pandas as pd
 import prince
 
-import pyphylon.models as models
-from .util import _validate_identical_shapes, _validate_decomposition_shapes, _check_and_convert_binary_sparse
+from .models import NmfModel
+from .util import (
+    _validate_identical_shapes,
+    _validate_decomposition_shapes,
+    _check_and_convert_binary_sparse,
+    _convert_sparse
+)
 
 class NmfData(object):
     """
@@ -22,7 +27,7 @@ class NmfData(object):
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
         F_bin: Optional[pd.DataFrame] = None, mca: Optional[prince.MCA] = None,
-        nmf: Optional[models.NmfModel] = None, pvge: Optional[dict] = None, **kwargs
+        nmf: Optional[NmfModel] = None, pvge: Optional[dict] = None, **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
@@ -73,9 +78,13 @@ class NmfData(object):
         # Validate L and A matrices if provided
         if self._L_norm is not None and self._A_norm is not None:
             _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm, 'P', 'L_norm', 'A_norm')
+            self._L_norm = _convert_sparse(self._L_norm)
+            self._A_norm = _convert_sparse(self._A_norm)
+
             if self._L_bin:
                 _validate_identical_shapes(self._L_norm, self._L_bin, 'L_norm', 'L_bin')
                 self._L_bin = _check_and_convert_binary_sparse(self._L_bin)
+            
             if self._A_bin:
                 _validate_identical_shapes(self._A_norm, self._A_bin, 'A_norm', 'A_bin')
                 self._A_bin = _check_and_convert_binary_sparse(self._A_bin)
@@ -89,9 +98,13 @@ class NmfData(object):
         # Validate U and F matrices if provided
         if self._V is not None and self._U_norm is not None and self._F_norm is not None:
             _validate_decomposition_shapes(self._V, self._U_norm, self._F_norm, 'V', 'U_norm', 'F_norm')
+            self._U_norm = _convert_sparse(self._U_norm)
+            self._F_norm = _convert_sparse(self._F_norm)
+            
             if self._U_bin:
                 _validate_identical_shapes(self._U_norm, self._U_bin, 'U_norm', 'U_bin')
                 self._U_bin = _check_and_convert_binary_sparse(self._U_bin)
+            
             if self._F_bin:
                 _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
                 self._F_bin = _check_and_convert_binary_sparse(self._F_bin)
