@@ -3,24 +3,27 @@ Functions for reading and writing data into files.
 """
 
 import json
-import pickle
-import pandas as pd
+import joblib
+from typing import Any
 
 from .core import NmfData
 from .models import NmfModel
 
-def save_nmf_data(nmf_data: NmfData, filepath):
+
+def save_nmf_data(nmf_data: NmfData, filepath: str, **kwargs):
     """
     Save an NmfData object to a file.
 
     Parameters:
     - nmf_data (NmfData): The NmfData object to save.
     - filepath (str): The path to the file where the object will be saved.
+    - kwargs: Additional kwargs to pass onto joblib.dump()
     """
-    with open(filepath, 'wb') as f:
-        pickle.dump(nmf_data, f)
+    processed_filepath = filepath if '.pkl' in filepath[-4:] else f'{filepath}.pkl'
+    joblib.dump(nmf_data, processed_filepath, **kwargs)
 
-def load_nmf_data(filepath):
+
+def load_nmf_data(filepath: str) -> NmfData:
     """
     Load an NmfData object from a file.
 
@@ -30,21 +33,24 @@ def load_nmf_data(filepath):
     Returns:
     - NmfData: The loaded NmfData object.
     """
-    with open(filepath, 'rb') as f:
-        return pickle.load(f)
+    data = joblib.load(filepath)
+    return NmfData(data)
 
-def save_nmf_model(nmf_model: NmfModel, filepath):
+
+def save_nmf_model(nmf_model: NmfModel, filepath: str, **kwargs):
     """
     Save an NmfModel object to a file.
 
     Parameters:
     - nmf_model (NmfModel): The NmfModel object to save.
     - filepath (str): The path to the file where the object will be saved.
+    - kwargs: Additional kwargs to pass onto joblib.dump()
     """
-    with open(filepath, 'wb') as f:
-        pickle.dump(nmf_model, f)
+    processed_filepath = filepath if '.pkl' in filepath[-4:] else f'{filepath}.pkl'
+    joblib.dump(nmf_model, processed_filepath, **kwargs)
 
-def load_nmf_model(filepath):
+
+def load_nmf_model(filepath: str) -> NmfModel:
     """
     Load an NmfModel object from a file.
 
@@ -54,29 +60,63 @@ def load_nmf_model(filepath):
     Returns:
     - NmfModel: The loaded NmfModel object.
     """
-    with open(filepath, 'rb') as f:
-        return pickle.load(f)
+    data = joblib.load(filepath)
+    return NmfModel(data)
 
-def save_json(data, filepath):
+
+def save_nmf_data_to_json(nmf_data: NmfData, filepath: str):
     """
-    Save data to a JSON file.
+    Save an NmfData object to a JSON file.
 
     Parameters:
-    - data (dict): The data to save.
-    - filepath (str): The path to the file where the data will be saved.
+    - nmf_data (NmfData): The NmfData object to save.
+    - filepath (str): The path to the file where the object will be saved.
     """
+    data_dict = nmf_data.__dict__
     with open(filepath, 'w') as f:
-        json.dump(data, f)
+        json.dump(data_dict, f)
 
-def load_json(filepath):
+
+def load_nmf_data_from_json(filepath: str) -> NmfData:
     """
-    Load data from a JSON file.
+    Load an NmfData object from a JSON file.
 
     Parameters:
-    - filepath (str): The path to the file from which to load the data.
+    - filepath (str): The path to the file from which to load the object.
 
     Returns:
-    - dict: The loaded data.
+    - NmfData: The loaded NmfData object.
     """
     with open(filepath, 'r') as f:
-        return json.load(f)
+        data_dict = json.load(f)
+    nmf_data = NmfData(**data_dict)
+    return nmf_data
+
+
+def save_nmf_model_to_json(nmf_model: NmfModel, filepath: str):
+    """
+    Save an NmfModel object to a JSON file.
+
+    Parameters:
+    - nmf_model (NmfModel): The NmfModel object to save.
+    - filepath (str): The path to the file where the object will be saved.
+    """
+    model_dict = nmf_model.__dict__
+    with open(filepath, 'w') as f:
+        json.dump(model_dict, f)
+
+
+def load_nmf_model_from_json(filepath: str) -> NmfModel:
+    """
+    Load an NmfModel object from a JSON file.
+
+    Parameters:
+    - filepath (str): The path to the file from which to load the object.
+
+    Returns:
+    - NmfModel: The loaded NmfModel object.
+    """
+    with open(filepath, 'r') as f:
+        model_dict = json.load(f)
+    nmf_model = NmfModel(**model_dict)
+    return nmf_model
