@@ -5,8 +5,8 @@ Core functions for the NmfData object.
 from typing import Optional
 import pandas as pd
 
-from pyphylon.models import *
-from pyphylon.util import _validate_identical_shapes, _validate_decomposition_shapes
+from .models import *
+from .util import _validate_identical_shapes, _validate_decomposition_shapes
 
 class NmfData(object):
     """
