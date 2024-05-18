@@ -9,7 +9,7 @@ import pandas as pd
 from .core import NmfData
 from .models import NmfModel
 
-def save_nmf_data(nmf_data, filepath):
+def save_nmf_data(nmf_data: NmfData, filepath):
     """
     Save an NmfData object to a file.
 
@@ -33,7 +33,7 @@ def load_nmf_data(filepath):
     with open(filepath, 'rb') as f:
         return pickle.load(f)
 
-def save_nmf_model(nmf_model, filepath):
+def save_nmf_model(nmf_model: NmfModel, filepath):
     """
     Save an NmfModel object to a file.
 
