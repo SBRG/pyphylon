@@ -4,8 +4,9 @@ Core functions for the NmfData object.
 
 from typing import Optional
 import pandas as pd
+import prince
 
-from .models import *
+import pyphylon.models as models
 from .util import _validate_identical_shapes, _validate_decomposition_shapes
 
 class NmfData(object):
@@ -20,8 +21,8 @@ class NmfData(object):
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
-        F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
-        nmf: Optional[NmfModel] = None, pvge: Optional[dict] = None, **kwargs
+        F_bin: Optional[pd.DataFrame] = None, mca: Optional[prince.MCA] = None,
+        nmf: Optional[models.NmfModel] = None, pvge: Optional[dict] = None, **kwargs
     ):
         """
         Initialize the NmfData object with required and optional dataframes.
@@ -64,8 +65,20 @@ class NmfData(object):
 
     def validate_data(self):
         """
-        Validate the correctness of the input dataframes based on the provided specifications.
+        Validate the correctness of the inputs based on the provided specifications.
         """
+        # Validate P matrix is binary
+        if not self._P.astype('int8').isin([0, 1]).all().all():
+            raise ValueError("The DataFrame is not binary. It contains values other than 0 / 1 or False / True.")
+        
+        # Ensure P matrix is stored as a SparseDtype of int8
+        cond1 = all(pd.api.types.is_sparse(self._P[col]) for col in self._P.columns)
+        cond2 = self._P.dtypes.unique().tolist() != [pd.SparseDtype("int8", 0)]
+
+        if not cond1 or cond2:
+            self._P = self._P.astype(pd.SparseDtype("int8", 0))
+        
+        # 
         if self._L_norm is not None and self._A_norm is not None:
             _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm, 'P', 'L_norm', 'A_norm')
             if self._L_bin:

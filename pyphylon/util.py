@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm.notebook import trange
 
-# Data shape validation #
+# Data validation #
 
 def _validate_identical_shapes(mat1, mat2, name1, name2):
     if mat1.shape != mat2.shape:
