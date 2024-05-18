@@ -145,8 +145,6 @@ def build_cds_pangenome(genome_faa_paths, output_dir, name='Test',
     return df_alleles, df_genes, header_to_allele
 
 
-
-
 def build_cds_nucl_pangenome(genome_data, output_dir, name='Test',
                              allowed_features=['CDS', 'tRNA'],
                              cdhit_args={'-n': 5, '-c':0.8}, fastasort_path=None,
@@ -411,6 +409,7 @@ def build_noncoding_pangenome(genome_data, output_dir, name='Test', flanking=(0,
     return df_nc_alleles, df_nc_genes, header_to_allele
     
 
+# Helper functions
 def consolidate_seqs(genome_paths, nr_out, shared_headers_out, missing_headers_out=None):
     ''' 
     Combines sequences for many genomes into a single file without duplicate
@@ -1565,7 +1564,7 @@ def validate_upstream_table_direct(df_upstream, genome_fna_paths, nr_upstream_fn
     and counts start codons observed. DOES NOT check the exact location of the
     upstream sequences. See validate_proximal_table() for parameters.
     '''
-    validate_proximal_table(df_upstream, genome_fna_paths, nr_upstream_fna, 
+    validate_proximal_table_direct(df_upstream, genome_fna_paths, nr_upstream_fna, 
                             limits, 'upstream', log_group)
 
     
@@ -1577,7 +1576,7 @@ def validate_downstream_table_direct(df_downstream, genome_fna_paths, nr_downstr
     and counts stop codons observed. DOES NOT check the exact location of the
     downstream sequences. See validate_proximal_table() for parameters.
     '''
-    validate_proximal_table(df_downstream, genome_fna_paths, nr_downstream_fna, 
+    validate_proximal_table_direct(df_downstream, genome_fna_paths, nr_downstream_fna, 
                             limits, 'downstream', log_group)
     
 
