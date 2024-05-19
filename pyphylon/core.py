@@ -2,7 +2,7 @@
 Core functions for the NmfData object.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Callable
 import pandas as pd
 from prince import MCA
 
@@ -110,8 +110,20 @@ class NmfData(object):
                 _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
                 self._F_bin = _check_and_convert_binary_sparse(self._F_bin)
     
-    def validate_model(model: Union[MCA, NmfModel, dict]):
-        pass
+    def validate_model(self, model: str = 'all'):
+        validators: Dict[str, Callable] = {
+            'mca': self._validate_mca,
+            'nmf': self._validate_nmf_model,
+            'pvge': self._validate_pvge,
+        }
+
+        if model.lower() in validators:
+            validators[model]()
+        elif model == 'all':
+            for model in validators:
+                validators[model]()
+        else:
+            raise TypeError(f"Unsupported model type: {model}")
     
     @property
     def P(self):
@@ -235,5 +247,17 @@ class NmfData(object):
         include mobile genetic elements such as sex pili, transposases,
         and components of the F plasmid transfer operon, among others.
         """
+        # TODO: Implement this
+        pass
+    
+    # Helper functions
+    def _validate_mca(self):
+        assert type(self._mca) == MCA
+
+    def _validate_nmf(self):
+        # TODO: Implement this
+        pass
+
+    def _validate_pvge(self):
         # TODO: Implement this
         pass
