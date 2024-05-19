@@ -106,9 +106,9 @@ def binarize_nmf_outputs(L_norm_dict, A_norm_dict):
     return L_binarized_dict, A_binarized_dict
 
 def generate_nmf_reconstructions(data, L_binarized_dict, A_binarized_dict):
-    '''
+    """
     Calculate model reconstr, error, & confusion matrix for each L_bin & A_bin
-    '''
+    """
     P_reconstructed_dict = {}
     P_error_dict = {}
     P_confusion_dict = {}
@@ -133,9 +133,9 @@ def calculate_nmf_reconstruction_metrics(
         P_reconstructed_dict,
         P_confusion_dict
     ):
-    '''
+    """
     Calculate all reconstruction metrics from the generated confusion matrix
-    '''
+    """
     df_metrics = pd.DataFrame()
 
     for rank in tqdm(P_reconstructed_dict, desc='Tabulating metrics...'):
@@ -224,24 +224,24 @@ def run_polytope_vertex_group_extraction(
 
 # Container for NMF models for easy loading into NmfData
 class NmfModel(object):
-    '''
+    """
     Class representation of NMF models and their reconstructions w/metrics
-    '''
+    """
 
     def __init__(
             self,
             data: pd.DataFrame,
             ranks: Iterable,
             max_iter: int = 10_000
-        ):
-        '''
+        ) -> None:
+        """
         Initialize the NmfModel object w/ required data matrix and rank list.
 
         Parameters:
         - data: DataFrame on which NMF will be run
         - ranks: Iterable of ranks on which to perform NMF
         - max_iter: Integer, Max num of iters for convergence, default 10_000
-        '''
+        """
 
         self._data = data
         self._ranks = ranks
@@ -262,19 +262,19 @@ class NmfModel(object):
     
     @property
     def data(self):
-        '''Get input data for NMF models'''
+        """Get input data for NMF models"""
         return self._data
     
     @property
     def ranks(self):
-        '''Get ranks on which NMF will be performed'''
+        """Get ranks on which NMF will be performed"""
         return self._ranks
     
     # If None, compute the following properties when called
     
     @property
     def W_dict(self):
-        '''Get a dictionary of raw W matrices across chosen ranks'''
+        """Get a dictionary of raw W matrices across chosen ranks"""
         if not self._W_dict:
             W_dict, H_dict = run_nmf(
                 self._data,
@@ -292,7 +292,7 @@ class NmfModel(object):
 
     @property
     def H_dict(self):
-        '''Get a dictionary of raw H matrices across chosen ranks'''
+        """Get a dictionary of raw H matrices across chosen ranks"""
         if not self._H_dict:
             W_dict, H_dict = run_nmf(
                 self._data,
@@ -310,7 +310,7 @@ class NmfModel(object):
     
     @property
     def L_norm_dict(self):
-        '''Get a dictionary of L matrices across chosen ranks'''
+        """Get a dictionary of L matrices across chosen ranks"""
         if not self._L_norm_dict:
             L_norm_dict, A_norm_dict = normalize_nmf_outputs(
                 self.data,
@@ -328,7 +328,7 @@ class NmfModel(object):
 
     @property
     def A_norm_dict(self):
-        '''Get a dictionary of A matrices across chosen ranks'''
+        """Get a dictionary of A matrices across chosen ranks"""
         if not self._A_norm_dict:
             L_norm_dict, A_norm_dict = normalize_nmf_outputs(
                 self.data,
@@ -346,7 +346,7 @@ class NmfModel(object):
 
     @property
     def L_binarized_dict(self):
-        '''Get a dictionary of binarized L matrices across chosen ranks'''
+        """Get a dictionary of binarized L matrices across chosen ranks"""
         if not self._L_binarized_dict:
             L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
                 self.L_norm_dict,
@@ -363,7 +363,7 @@ class NmfModel(object):
 
     @property
     def A_binarized_dict(self):
-        '''Get a dictionary of binarized A matrices across chosen ranks'''
+        """Get a dictionary of binarized A matrices across chosen ranks"""
         if not self._A_binarized_dict:
             L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
                 self.L_norm_dict,
@@ -380,9 +380,9 @@ class NmfModel(object):
     
     @property
     def P_reconstructed_dict(self):
-        '''
+        """
         Get a dictionary of the reconstructed data from post-processed NMF.
-        '''
+        """
         if not self._P_reconstructed_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -401,9 +401,9 @@ class NmfModel(object):
     
     @property
     def P_error_dict(self):
-        '''
+        """
         Get a dictionary of errors between orig and reconstr data matrices.
-        '''
+        """
         if not self._P_error_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -422,9 +422,9 @@ class NmfModel(object):
     
     @property
     def P_confusion_dict(self):
-        '''
+        """
         Get a dictionary of the confusion matrix.
-        '''
+        """
         if not self._P_confusion_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -443,9 +443,9 @@ class NmfModel(object):
     
     @property
     def df_metrics(self):
-        '''
+        """
         Return a table of metrics for NMF model reconstructions across ranks.
-        '''
+        """
         if not self._df_metrics:
             df_metrics = calculate_nmf_reconstruction_metrics(
                 self.P_reconstructed_dict,
@@ -459,12 +459,42 @@ class NmfModel(object):
     def df_metrics(self, new_dict):
          self.df_metrics = new_dict
 
+# Container for PVGE models for easy loading into NmfData
+class PVGE(object):
+    """
+    Class representation of PVGE models and their metrics.
+
+    Polytope Vertex-Group Extraction (PVGE) is a technique
+    meant for extracting characteristic clusters from a
+    polytopic dataset. It is meant for binary datasets which
+    inherently generate data that lies on the vertex of a
+    hypercube. DensMAP is first run to identify vertex-group
+    clusters, which are then extracted with HDBSCAN.
+    """
+    def __init__(
+            self,
+            data: pd.DataFrame,
+            n_neighbors: int = None
+    ) -> None:
+        
+        self._data = data
+        if n_neighbors:
+            max_n = 0.5 * min(data.shape)
+            if n_neighbors >= max_n:
+                raise ValueError(
+                    f"n_neighbors is set too high at {n_neighbors}, max={max_n})"
+                )
+
+            self._n_neighbors = n_neighbors
+        else:
+            self._n_neighbors = 0.01 * min(data.shape)
+
 
 # Helper functions
 def _k_means_binarize_L(L_norm):
-    '''
+    """
     Use k-means clustering (k=3) to binarize L_norm matrix.
-    '''
+    """
     
     # Initialize an empty array to hold the binarized matrix
     L_binarized = np.zeros_like(L_norm.values)
@@ -504,9 +534,9 @@ def _k_means_binarize_L(L_norm):
     return L_binarized
 
 def _k_means_binarize_A(A_norm):
-    '''
+    """
     Use k-means clustering (k=3) to binarize A_norm matrix.
-    '''
+    """
     # Initialize an empty array to hold the binarized matrix
     A_binarized = np.zeros_like(A_norm.values)
     
