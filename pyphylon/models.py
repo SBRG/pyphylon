@@ -2,6 +2,7 @@
 Functions for handling dimension-reduction models of pangenome data.
 """
 
+from pyexpat import model
 import numpy as np
 import pandas as pd
 from typing import Iterable
@@ -14,6 +15,10 @@ from umap import UMAP
 from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
+
+################################
+#           Functions          #
+################################
 
 # Multiple Corresspondence Analysis (MCA)
 def run_mca(data):
@@ -147,28 +152,32 @@ def calculate_nmf_reconstruction_metrics(
     return df_metrics
 
 # Polytope Vertex Group Extraction (PVGE)
-def run_polytope_vertex_group_extraction(
-        data,
-        low_memory=False,
-        core_dist_n_jobs=8
+def run_densmap(
+        data: pd.DataFrame,
+        low_memory: bool = False,
+        n_neighbors: int = None
     ):
     """
-    Run DensMAP + HDBSCAN on the (polytopic) dataset.
+    Run DensMAP for density-preserving, nonlinear dimension reduction.
 
-    Note: Polytopic dataset means the column vectors of data
-    lie on the vertex of a polytope (e.g. hypercube)
+    This reduction can be run on `data` as well as its transpose `data.T`.
 
     Parameters:
-    - data: DataFrame containing the dataset to be analyzed.
-    - low_memory: Boolean, passed onto UMAP to optimize memory usage.
-    - core_dist_n_jobs: Integer, num of jobs for core dist calcs in UMAP.
+    - data (pd.DataFrame): Data to be embedded for dimension-reduction.
+    - low_memory (bool): Passed onto UMAP to optimize memory usage.
+    - n_neighbors (int): Passed onto UMAP to determine local/global dim. red.
 
     Returns:
-    - Cluster labels from HDBSCAN.
+    - embedding (UMAP): A DensMAP model object fitted to data.
     """
+    if n_neighbors:
+        n_neighbors = _check_n_neighbors(n_neighbors)
+    else:
+        n_neighbors = 0.01 * min(data.shape)
+    
     densmap = UMAP(
         n_components=3,
-        n_neighbors=0.01 * min(data.shape),
+        n_neighbors=n_neighbors,
         metric='cosine',
         min_dist=0.0,
         random_state=42,
@@ -177,50 +186,93 @@ def run_polytope_vertex_group_extraction(
     )
 
     embedding = densmap.fit_transform(data)
+    return embedding
 
+def run_hdbscan(
+        embedding: pd.DataFrame,
+        max_range: int = None,
+        core_dist_n_jobs: int = 8
+):
+    """
+    Run HDBSCAN across various cluster sizes and sample sizes.
+
+    Returns a multi-indexed DataFrame of models and their relevant
+    metrics.
+
+    Parameters:
+    - embedding (pd.DataFrame): Dimensionally-reduced dataset to cluster
+    - max_range (int): max range for hyperparameter tuning
+    - core_dist_n_jobs (int): Num of parallel jobs to run for core dist calcs
+
+    Returns:
+    - best_model (HDBSCAN): the best fitting model
+    - best_labels (np.array): the clustering label predictions of best_model
+    - df_models_with_metrics (pd.DataFrame): DataFrame of models with metrics
+    """
     # Define ranges for HDBSCAN parameters to tune
-    max_size = 0.05 * min(data.shape)
-    if max_size < 100:
+    max_size = 0.05 * max(embedding.shape)
+    if max_range < 100:
         max_size = 100
+    else:
+        max_size = max_range
     
     min_cluster_sizes = np.linspace(start=5, stop=max_size, num=5).astype(int)
     min_samples_range = np.linspace(start=5, stop=max_size, num=5).astype(int)
     
+    # Initialize criteria for comparing HDBSCAN models
     best_relative_validity = -1
-    return_dict = {}
-    
+    best_model = None
+    best_labels = None
+
+    # Create a MultiIndex DataFrame to store results
+    index = pd.MultiIndex.from_product(
+        iterables=[min_cluster_sizes, min_samples_range],
+        names=['min_cluster_size', 'min_samples']
+    )
+    models_df = pd.DataFrame(
+        index=index,
+        columns=['model', 'labels', 'relative_validity', 'silhouette_score']
+    )
+
     # Iterate over combinations of min_cluster_size and min_samples
     for min_cluster_size in tqdm(
         min_cluster_sizes,
-        desc='Tuning over various cluster sizes'
+        desc='Tuning over min. cluster sizes'
     ):
         for min_samples in tqdm(
             min_samples_range,
-            desc='Tuning over various sample sizes',
+            desc='Tuning over min. sample sizes',
             leave=False
         ):
             clusterer = HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
-                metric='euclidean'
+                metric='euclidean',
+                core_dist_n_jobs=core_dist_n_jobs
             )
             labels = clusterer.fit_predict(embedding)
 
-            # Evaluate clustering if more than one cluster and noise (-1) is less prevalent
+            # Evaluate clustering if > 1 cluster and noise (-1) < 50%
             if len(set(labels)) > 1 and np.count_nonzero(labels != -1) / len(labels) > 0.5:
                 score = silhouette_score(embedding, labels)
-
                 if clusterer.relative_validity_ > best_relative_validity:
-                    return_dict = {
-                        'min_cluster_size': min_cluster_size,
-                        'min_samples': min_samples,
-                        'silhouette_score': score,
-                        'best_model': clusterer
-                    }
+                    best_model = clusterer
+                    best_labels = labels
+                    best_relative_validity = clusterer.relative_validity_
+            
             else:
-                continue
+                score = -1
+            
+            models_df.loc[(min_cluster_size, min_samples), 'model'] = clusterer
+            models_df.loc[(min_cluster_size, min_samples), 'labels'] = labels
+            models_df.loc[(min_cluster_size, min_samples), 'relative_validity'] = clusterer.relative_validity_
+            models_df.loc[(min_cluster_size, min_samples), 'silhouette_score'] = score
     
-    return return_dict
+    return best_model, best_labels, models_df    
+
+################################
+#           Classes            #
+################################
 
 # Container for NMF models for easy loading into NmfData
 class NmfModel(object):
@@ -258,7 +310,6 @@ class NmfModel(object):
         self._P_error_dict = None
         self._P_confusion_dict = None
         self._df_metrics = None
-
     
     @property
     def data(self):
@@ -459,6 +510,7 @@ class NmfModel(object):
     def df_metrics(self, new_dict):
          self.df_metrics = new_dict
 
+
 # Container for PVGE models for easy loading into NmfData
 class PVGE(object):
     """
@@ -469,7 +521,12 @@ class PVGE(object):
     polytopic dataset. It is meant for binary datasets which
     inherently generate data that lies on the vertex of a
     hypercube. DensMAP is first run to identify vertex-group
-    clusters, which are then extracted with HDBSCAN.
+    clusters, which are then extracted with HDBSCAN. For
+    pangenomic data (e.g. P matrix), this approach yields
+    clusters with high concordance with Mash clusters and
+    known MLST values, showcasing the clustering does indeed
+    capture an underlying biological reality. These clusters
+    also match up well with NMF-derived phylons.
     """
     def __init__(
             self,
@@ -479,13 +536,7 @@ class PVGE(object):
         
         self._data = data
         if n_neighbors:
-            max_n = 0.5 * min(data.shape)
-            if n_neighbors >= max_n:
-                raise ValueError(
-                    f"n_neighbors is set too high at {n_neighbors}, max={max_n})"
-                )
-
-            self._n_neighbors = n_neighbors
+            self._n_neighbors = _check_n_neighbors(n_neighbors)
         else:
             self._n_neighbors = 0.01 * min(data.shape)
 
@@ -657,3 +708,13 @@ def _calculate_metrics(P_confusion):
         'MCC': MCC,
         'Jaccard Index': Jaccard_index
     }
+
+def _check_n_neighbors(n_neighbors):
+    max_n = 0.5 * min(data.shape)
+
+    if n_neighbors >= max_n:
+        raise ValueError(
+            f"n_neighbors is set too high at {n_neighbors}, max={max_n})"
+        )
+    
+    return n_neighbors
