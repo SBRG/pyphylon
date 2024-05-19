@@ -2,9 +2,9 @@
 Core functions for the NmfData object.
 """
 
-from typing import Optional
+from typing import Optional, Union
 import pandas as pd
-import prince
+from prince import MCA
 
 from .models import NmfModel
 from .util import (
@@ -26,7 +26,7 @@ class NmfData(object):
         A_norm: Optional[pd.DataFrame] = None, A_bin: Optional[pd.DataFrame] = None,
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
-        F_bin: Optional[pd.DataFrame] = None, mca: Optional[prince.MCA] = None,
+        F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
         nmf: Optional[NmfModel] = None, pvge: Optional[dict] = None, **kwargs
     ):
         """
@@ -64,10 +64,11 @@ class NmfData(object):
         self._U_bin = U_bin
         self._F_norm = F_norm
         self._F_bin = F_bin
-        self._mca = mca
         self.kwargs = kwargs
         self.validate_data()
+        self.validate_model(model='all')
 
+    
     def validate_data(self):
         """
         Validate the correctness of the inputs based on the provided specifications.
@@ -108,7 +109,10 @@ class NmfData(object):
             if self._F_bin:
                 _validate_identical_shapes(self._F_norm, self._F_bin, 'F_norm', 'F_bin')
                 self._F_bin = _check_and_convert_binary_sparse(self._F_bin)
-
+    
+    def validate_model(model: Union[MCA, NmfModel, dict]):
+        pass
+    
     @property
     def P(self):
         """Get the P matrix."""
@@ -199,4 +203,37 @@ class NmfData(object):
         # other code...
         # set the phylon table
         # self._phylon_table = phylon_table
+        pass
+
+    def view_phylon(self, phylon: Union[int, str]):
+        """
+        View genes in a phylon and show relevant information about each gene.
+
+        Parameters:
+        - imodulon (int or str): Name of phylon
+        
+        Returns:
+        - final_rows (pd.DataFrame): Table showing phylon gene information
+        """
+        # TODO: Only template has been implemented, more needs to be done
+        # Find genes in phylon
+        inPhylon = abs(self.L[phylon]) > self.thresholds[phylon]
+
+        # Get gene weights information
+        gene_weights = self.L.loc[inPhylon, phylon]
+        gene_weights.name = "gene_weight"
+        gene_rows = self.gene_table.loc[inPhylon]
+        final_rows = pd.concat([gene_weights, gene_rows], axis=1)
+
+        return final_rows
+    
+    def find_mobile_phylons(self):
+        """
+        Find all small phylons.
+        
+        These usually consist of fewer than 150 genes, and typically
+        include mobile genetic elements such as sex pili, transposases,
+        and components of the F plasmid transfer operon, among others.
+        """
+        # TODO: Implement this
         pass

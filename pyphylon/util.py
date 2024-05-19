@@ -30,30 +30,31 @@ def _validate_decomposition_shapes(input_mat, output1, output2, input_name, outp
 
 def _check_and_convert_binary_sparse(df: pd.DataFrame):
     # Validate matrix is binary
-    if not df.astype('int8').isin([0, 1]).all().all():
+    if not df.astype("int8").isin([0, 1]).all().all():
         raise ValueError("The DataFrame is not binary. It contains values other than 0 / 1 or False / True.")
 
     # Ensure matrix is stored as a SparseDtype of int8
-    df = _convert_sparse(df)   
-    
+    df = _convert_sparse(df, "int8")
+
     return df
 
-def _convert_sparse(df: pd.DataFrame):
-    # Ensure matrix is stored as a SparseDtype of int8
+def _convert_sparse(df: pd.DataFrame, dtype='int8'):
+    # Ensure matrix is stored as a SparseDtype of int8 or float
     cond1 = all(pd.api.types.is_sparse(df[col]) for col in df.columns)
     cond2 = df.dtypes.unique().tolist() != [pd.SparseDtype("int8", 0)]
 
     if not cond1 or cond2:
-        df = df.astype(pd.SparseDtype("int8", 0))
+        if dtype == 'int8':
+            df = df.astype(pd.SparseDtype("int8", 0))
+        else:
+            df = df.astype(pd.SparseDtype("float"))
     
     return df
 
 # NMF normalization #
 
 def _get_normalization_diagonals(W):
-    '''
-    Generate normalization matrices (to normalize W & H into L & A)
-    '''
+    # Generate normalization diagonal matrices
     normalization_vals = [1/np.quantile(W[col], q=0.99) for col in W.columns]
     recipricol_vals = [1/x for x in normalization_vals]
     
