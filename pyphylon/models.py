@@ -168,7 +168,8 @@ def run_densmap(
     - n_neighbors (int): Passed onto UMAP to determine local/global dim. red.
 
     Returns:
-    - embedding (UMAP): A DensMAP model object fitted to data.
+    - densmap (UMAP): A DensMAP model object fitted to data.
+    - embedding (pd.DataFrame): A DataFrame of the reduced embedding.
     """
     if n_neighbors:
         n_neighbors = _check_n_neighbors(n_neighbors)
@@ -186,7 +187,7 @@ def run_densmap(
     )
 
     embedding = densmap.fit_transform(data)
-    return embedding
+    return densmap, embedding
 
 def run_hdbscan(
         embedding: pd.DataFrame,
@@ -258,6 +259,7 @@ def run_hdbscan(
                 if clusterer.relative_validity_ > best_relative_validity:
                     best_model = clusterer
                     best_labels = labels
+                    best_model_sil_score = score
                     best_relative_validity = clusterer.relative_validity_
             
             else:
@@ -268,7 +270,7 @@ def run_hdbscan(
             models_df.loc[(min_cluster_size, min_samples), 'relative_validity'] = clusterer.relative_validity_
             models_df.loc[(min_cluster_size, min_samples), 'silhouette_score'] = score
     
-    return best_model, best_labels, models_df    
+    return best_model, best_labels, best_model_sil_score, models_df
 
 ################################
 #           Classes            #
@@ -526,19 +528,157 @@ class PVGE(object):
     clusters with high concordance with Mash clusters and
     known MLST values, showcasing the clustering does indeed
     capture an underlying biological reality. These clusters
-    also match up well with NMF-derived phylons.
+    also match up well with NMF-derived phylons
     """
     def __init__(
             self,
             data: pd.DataFrame,
-            n_neighbors: int = None
+            low_memory: bool = False,
+            n_neighbors: int = None,
+            max_range: int = None,
+            core_dist_n_jobs: int = 8
     ) -> None:
         
+        # data
         self._data = data
+
+        # densmap
+        self._densmap = None
+        self._low_memory = low_memory
+        
         if n_neighbors:
             self._n_neighbors = _check_n_neighbors(n_neighbors)
         else:
             self._n_neighbors = 0.01 * min(data.shape)
+        
+        # hdbscan
+        self._hdbscan_best_model = None
+        self._hdbscan_best_model_sil_score = None
+        self._hdbscan_tuning_metrics = None
+        self._max_range = max_range
+        self._core_dist_n_jobs = core_dist_n_jobs
+        self._labels = None
+    
+    # Properties
+    @property
+    def data(self):
+        return self._data
+    
+    @property
+    def densmap(self):
+        if not self._densmap:
+            self._densmap, self._embedding = run_densmap(
+                self._data,
+                self._low_memory,
+                self._n_neighbors
+            )
+        
+        return self._densmap
+    
+    @property
+    def embedding(self):
+        if not self._embedding:
+            self._densmap, self._embedding = run_densmap(
+                self._data,
+                self._low_memory,
+                self._n_neighbors
+            )
+        
+        return self._embedding
+    
+    @property
+    def n_neighbors(self):
+        return self._n_neighbors
+    
+    @property
+    def hdbscan(self):
+        if not self._hdbscan_best_model:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_best_model
+    
+    @property
+    def labels(self):
+        if not self._labels:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._labels
+    
+    @property
+    def silhouette_score(self):
+        if not self._hdbscan_best_model_sil_score:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_best_model_sil_score
+    
+    @property
+    def hdbscan_tuning_metrics(self):
+        if not self._hdbscan_tuning_metrics:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_tuning_metrics
+    
+    # Class methods
+    def run_densmap(self, low_memory: bool = False):
+        if low_memory:
+            self._low_memory = low_memory
+        
+        densmap, embedding = run_densmap(
+            self._data,
+            self._low_memory,
+            self._n_neighbors
+        )
+        self._densmap = densmap
+        self._embedding = embedding
+    
+    def run_hdbscan(self, max_range: int = None, core_dist_n_jobs: int = None):
+        if max_range:
+            self._max_range = max_range
+        if core_dist_n_jobs:
+            self._core_dist_n_jobs = core_dist_n_jobs
+        
+        best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+            self.embedding,
+            self._max_range,
+            self._core_dist_n_jobs
+        )
+        self._hdbscan_best_model = best_model
+        self._labels = best_labels
+        self._hdbscan_best_model_sil_score = best_model_sil_score
+        self._hdbscan_tuning_metrics = models_df
+
 
 
 # Helper functions
