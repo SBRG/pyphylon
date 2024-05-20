@@ -852,9 +852,10 @@ def _calculate_metrics(P_confusion):
 def _check_n_neighbors(data, n_neighbors):
     max_n = int(0.5 * min(data.shape))
 
-    if n_neighbors >= max_n:
+    if n_neighbors > max_n:
         raise ValueError(
-            f"n_neighbors is set too high at {n_neighbors}, max allowed < {max_n})"
+            f"n_neighbors is set too high at {n_neighbors},"
+            "max allowed is {max_n} based on data shape of {data.shape})"
         )
     
     return n_neighbors
