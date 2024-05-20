@@ -24,5 +24,8 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    extras_require={
+        'cd-hit': ['cd-hit']
+    },
+    python_requires='>=3.11',
 )
