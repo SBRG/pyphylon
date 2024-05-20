@@ -6,7 +6,7 @@ from typing import Optional, Union, Dict, Callable
 import pandas as pd
 from prince import MCA
 
-from .models import NmfModel
+from .models import NmfModel, PVGE
 from .util import (
     _validate_identical_shapes,
     _validate_decomposition_shapes,
@@ -27,8 +27,8 @@ class NmfData(object):
         V: Optional[pd.DataFrame] = None, U_norm: Optional[pd.DataFrame] = None,
         U_bin: Optional[pd.DataFrame] = None, F_norm: Optional[pd.DataFrame] = None,
         F_bin: Optional[pd.DataFrame] = None, mca: Optional[MCA] = None,
-        nmf: Optional[NmfModel] = None, pvge: Optional[dict] = None, **kwargs
-    ):
+        nmf: Optional[NmfModel] = None, pvge: Optional[PVGE] = None, **kwargs
+    ) -> None:
         """
         Initialize the NmfData object with required and optional dataframes.
 
@@ -48,7 +48,7 @@ class NmfData(object):
         - F_bin: Optional DataFrame for binary version of F_norm.
         - mca: Optional MCA model for optimal rank determination.
         - nmf: Optional NmfModel of results from running optimal rank determination.
-        - pvge: Optional dictionary of results + clustering from running PVGE
+        - pvge: Optional PVGE model of results from running Polytope Vertex Group Extraction
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
         self._P = P
@@ -68,7 +68,7 @@ class NmfData(object):
         self.validate_data()
         self.validate_model(model='all')
 
-    
+    # Validation methods
     def validate_data(self):
         """
         Validate the correctness of the inputs based on the provided specifications.
@@ -125,6 +125,7 @@ class NmfData(object):
         else:
             raise TypeError(f"Unsupported model type: {model}")
     
+    # Properties
     @property
     def P(self):
         """Get the P matrix."""
@@ -216,7 +217,8 @@ class NmfData(object):
         # set the phylon table
         # self._phylon_table = phylon_table
         pass
-
+    
+    # Class methods
     def view_phylon(self, phylon: Union[int, str]):
         """
         View genes in a phylon and show relevant information about each gene.
