@@ -34,9 +34,9 @@ class NmfData(object):
 
         Parameters:
         - P: DataFrame with genes as rows and strains/genomes as columns.
-        - genome_table: Optional DataFrame with genome_id as index and additional info like genome_name, mlst, mash_cluster.
-        - gene_table: Optional DataFrame with functional annotations for all genes in the pangenome
-        - phylon_table: Optional DataFrame with annotations of phylons
+        - genome_table: Optional DataFrame of genome data / metadata.
+        - gene_table: Optional DataFrame of gene annotations (eggNOG).
+        - phylon_table: Optional DataFrame of phylon annotations.
         - L_norm: Optional DataFrame for L normalization.
         - L_bin: Optional DataFrame for binary version of L_norm.
         - A_norm: Optional DataFrame for A normalization.
@@ -51,20 +51,33 @@ class NmfData(object):
         - pvge: Optional PVGE model of results from running Polytope Vertex Group Extraction
         - kwargs: Additional keyword arguments like paths to .fna, .faa, .gff files.
         """
+        # P matrix (accessory genome)
         self._P = P
+
+        # gene & genome info tables
         self._genome_table = genome_table
         self._gene_table = gene_table
         self._phylon_table = phylon_table
+
+        # NMF output matrices
         self._L_norm = L_norm
         self._L_bin = L_bin
         self._A_norm = A_norm
         self._A_bin = A_bin
+
+        # V matrix (accessory genome)
         self._V = V
+
+        # NMF (on V) output matrices
         self._U_norm = U_norm
         self._U_bin = U_bin
         self._F_norm = F_norm
         self._F_bin = F_bin
+
+        # kwargs
         self.kwargs = kwargs
+
+        # Validate inputs
         self.validate_data()
         self.validate_model(model='all')
 
@@ -79,13 +92,11 @@ class NmfData(object):
         # Validate L and A matrices if provided
         if self._L_norm is not None and self._A_norm is not None:
             _validate_decomposition_shapes(self._P, self._L_norm, self._A_norm, 'P', 'L_norm', 'A_norm')
-            self._L_norm = _convert_sparse(self._L_norm)
-            self._A_norm = _convert_sparse(self._A_norm)
 
             if self._L_bin:
                 _validate_identical_shapes(self._L_norm, self._L_bin, 'L_norm', 'L_bin')
                 self._L_bin = _check_and_convert_binary_sparse(self._L_bin)
-            
+
             if self._A_bin:
                 _validate_identical_shapes(self._A_norm, self._A_bin, 'A_norm', 'A_bin')
                 self._A_bin = _check_and_convert_binary_sparse(self._A_bin)
@@ -217,7 +228,7 @@ class NmfData(object):
         # set the phylon table
         # self._phylon_table = phylon_table
         pass
-    
+
     # Class methods
     def view_phylon(self, phylon: Union[int, str]):
         """
@@ -257,7 +268,7 @@ class NmfData(object):
         assert type(self._mca) == MCA
 
     def _validate_nmf(self):
-        # TODO: Implement this
+        assert type(self) == MCA
         pass
 
     def _validate_pvge(self):
