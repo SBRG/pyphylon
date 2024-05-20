@@ -263,14 +263,12 @@ class NmfData(object):
         # TODO: Implement this
         pass
     
-    # Helper functions
+    # Private class methods
     def _validate_mca(self):
         assert type(self._mca) == MCA
 
     def _validate_nmf(self):
-        assert type(self) == MCA
-        pass
+        assert type(self) == NmfModel
 
     def _validate_pvge(self):
-        # TODO: Implement this
-        pass
+        assert type(self) == PVGE
