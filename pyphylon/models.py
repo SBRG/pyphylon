@@ -680,7 +680,6 @@ class PVGE(object):
         self._hdbscan_tuning_metrics = models_df
 
 
-
 # Helper functions
 def _k_means_binarize_L(L_norm):
     """
