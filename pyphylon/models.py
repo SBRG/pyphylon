@@ -172,7 +172,7 @@ def run_densmap(
     - embedding (pd.DataFrame): A DataFrame of the reduced embedding.
     """
     if n_neighbors:
-        n_neighbors = _check_n_neighbors(n_neighbors)
+        n_neighbors = _check_n_neighbors(data, n_neighbors)
     else:
         n_neighbors = 0.01 * min(data.shape)
     
@@ -547,7 +547,7 @@ class PVGE(object):
         self._low_memory = low_memory
         
         if n_neighbors:
-            self._n_neighbors = _check_n_neighbors(n_neighbors)
+            self._n_neighbors = _check_n_neighbors(data, n_neighbors)
         else:
             self._n_neighbors = 0.01 * min(data.shape)
         
@@ -849,12 +849,12 @@ def _calculate_metrics(P_confusion):
         'Jaccard Index': Jaccard_index
     }
 
-def _check_n_neighbors(n_neighbors):
+def _check_n_neighbors(data, n_neighbors):
     max_n = 0.5 * min(data.shape)
 
     if n_neighbors >= max_n:
         raise ValueError(
-            f"n_neighbors is set too high at {n_neighbors}, max={max_n})"
+            f"n_neighbors is set too high at {n_neighbors}, max allowed < {max_n})"
         )
     
     return n_neighbors
