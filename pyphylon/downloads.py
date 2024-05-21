@@ -107,9 +107,15 @@ def get_scaffold_n50_for_species(taxon_id):
     Returns:
     int: The Scaffold N50 value in base units.
     """
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    logging.info(f"Fetching reference genome link for taxon ID {taxon_id}")
     reference_genome_url = get_reference_genome_link(taxon_id)
     full_reference_genome_url = f"https://www.ncbi.nlm.nih.gov{reference_genome_url}"
+    logging.info(f"Fetching Scaffold N50 value from {full_reference_genome_url}")
     scaffold_n50 = get_scaffold_n50(full_reference_genome_url)
+
     return scaffold_n50
 
 # Helper functions
@@ -164,12 +170,17 @@ def get_reference_genome_link(taxon_id):
     soup = BeautifulSoup(response.content, 'html.parser')
     reference_genome_link = None
     
-    # Find the link below the "Reference genome" heading
-    reference_genome_heading = soup.find(text="Reference genome")
+    # Find the <h3> tag with the "Reference genome" text
+    reference_genome_heading = soup.find('h3', class_='MuiTypography-root MuiTypography-h4 css-1jkdc64', text="Reference genome")
     if reference_genome_heading:
-        reference_genome_link_tag = reference_genome_heading.find_next('a', href=True)
+        logging.info("Found 'Reference genome' heading.")
+        # Find the <p> tag that follows and contains the link
+        reference_genome_link_tag = reference_genome_heading.find_next('a', class_='MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineHover css-m18yf3')
         if reference_genome_link_tag:
+            logging.info(f"Found reference genome link: {reference_genome_link_tag['href']}")
             reference_genome_link = reference_genome_link_tag['href']
+    else:
+        logging.warning(f"'Reference genome' heading not found for taxon ID {taxon_id}.")
     
     if reference_genome_link is None:
         raise ValueError(f"Reference genome link not found for taxon ID {taxon_id}")
@@ -195,14 +206,18 @@ def get_scaffold_n50(reference_genome_url):
     # Find the Scaffold N50 value under the RefSeq column
     assembly_statistics_heading = soup.find(text="Assembly statistics")
     if assembly_statistics_heading:
+        logging.info("Found 'Assembly statistics' heading.")
         table = assembly_statistics_heading.find_next('table')
         if table:
             rows = table.find_all('tr')
             for row in rows:
                 cells = row.find_all('td')
                 if len(cells) >= 2 and "Scaffold N50" in cells[0].text:
-                    scaffold_n50 = cells[1].text
+                    scaffold_n50 = cells[1].text.strip()
+                    logging.info(f"Found Scaffold N50 value: {scaffold_n50}")
                     break
+    else:
+        logging.warning(f"'Assembly statistics' heading not found at {reference_genome_url}.")
     
     if scaffold_n50 is None:
         raise ValueError(f"Scaffold N50 value not found at {reference_genome_url}")
