@@ -170,16 +170,12 @@ def get_reference_genome_link(taxon_id):
     soup = BeautifulSoup(response.content, 'html.parser')
     reference_genome_link = None
     
-    # Find the <h3> tag with the class and text "Reference genome"
-    reference_genome_link_tag = soup.find(
-        'a',
-        class_='MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineHover css-m18yf3'
-    )
-    if reference_genome_link_tag:
-        logging.info(f"Found reference genome link: {reference_genome_link_tag['href']}")
-        reference_genome_link = reference_genome_link_tag['href']
-    else:
-        logging.warning(f"Reference genome link not found for taxon ID {taxon_id}.")
+    # Find the <a> tag with '/datasets/genome' in its href attribute
+    for link in soup.find_all('a', href=True):
+        if '/datasets/genome/' in link['href']:
+            reference_genome_link = link['href']
+            logging.info(f"Found reference genome link: {reference_genome_link}")
+            break
     
     if reference_genome_link is None:
         raise ValueError(f"Reference genome link not found for taxon ID {taxon_id}")
