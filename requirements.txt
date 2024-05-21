@@ -2,6 +2,7 @@ numpy
 pandas
 scipy
 scikit-learn
+biopython
 tqdm
 matplotlib
 seaborn
