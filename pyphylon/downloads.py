@@ -43,12 +43,13 @@ def download_bvbrc_genome_info_files(force=False):
         else:
             print(f"{file_name} already exists. Skipping download. Use force=True to re-download.")
 
-def download_example_bvbrc_genome_files(output_dir=None):
+def download_example_bvbrc_genome_files(output_dir=None, force=False):
     """
-    Downloads example genome metadata and summary files from Zenodo
+    Downloads genome metadata and summary files from Zenodo.
     
     Parameters:
     output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
+    force (bool): Force download even if the file already exists. Defaults to False.
     """
     # Configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -70,6 +71,10 @@ def download_example_bvbrc_genome_files(output_dir=None):
     # Download each file
     for filename, url in urls.items():
         file_path = os.path.join(output_dir, filename)
+        if not force and os.path.exists(file_path):
+            logging.info(f"File {filename} already exists in {output_dir} and force is set to False. Skipping download.")
+            continue
+        
         try:
             response = requests.get(url)
             response.raise_for_status()  # Check if the request was successful
@@ -78,6 +83,17 @@ def download_example_bvbrc_genome_files(output_dir=None):
             logging.info(f"Downloaded {filename} to {file_path}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to download {filename}: {e}")
+
+# Example usage from 1a.ipynb:
+# To download to the metadata folder
+download_example_bvbrc_genome_files(output_dir='data/metadata')
+
+# To download to the current working directory
+download_example_bvbrc_genome_files()
+
+# To force download to the metadata folder
+download_example_bvbrc_genome_files(output_dir='data/metadata', force=True)
+
 
 def download_from_bvbrc(ftp_path, save_path):
     """
