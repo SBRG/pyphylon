@@ -209,7 +209,6 @@ def get_scaffold_n50(reference_genome_url):
     
     return _convert_to_int(scaffold_n50)
 
-
 def _convert_to_int(value_str):
     """
     Converts a string with units to an integer.
@@ -223,8 +222,3 @@ def _convert_to_int(value_str):
     units = {'Kb': 1e3, 'Mb': 1e6, 'Gb': 1e9}
     value, unit = value_str.split()
     return int(float(value) * units[unit])
-
-# Example usage:
-taxon_id = "1314"  # Streptococcus pyogenes
-scaffold_n50 = get_scaffold_n50_for_species(taxon_id)
-print(f"Scaffold N50 for taxon ID {taxon_id}: {scaffold_n50}")
