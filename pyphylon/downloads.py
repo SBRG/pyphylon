@@ -16,6 +16,7 @@ GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_
 
 # TODO: Add in checks from 1b and deduplication
 # TODO: Add in functions to download selected strains
+# TODO: Add in functions to download from NCBI (including RefSeq)
 
 def download_bvbrc_genome_info_files(force=False):
     """
