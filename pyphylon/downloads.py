@@ -95,17 +95,6 @@ def download_example_bvbrc_genome_files(output_dir=None, force=False):
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to download {filename}: {e}")
 
-# Example usage from 1a.ipynb:
-# To download to the metadata folder
-download_example_bvbrc_genome_files(output_dir='data/metadata')
-
-# To download to the current working directory
-download_example_bvbrc_genome_files()
-
-# To force download to the metadata folder
-download_example_bvbrc_genome_files(output_dir='data/metadata', force=True)
-
-
 def download_from_bvbrc(ftp_path, save_path):
     """
     Download a file from the BV-BRC FTP server.
