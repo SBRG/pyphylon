@@ -7,6 +7,8 @@ import ftplib
 import requests
 import logging
 from Bio import Entrez
+from bs4 import BeautifulSoup
+
 
 # URLs
 GENOME_SUMMARY_URL = "https://zenodo.org/record/11226678/files/genome_summary_Oct_12_23.tsv?download=1"
@@ -95,6 +97,22 @@ def download_example_bvbrc_genome_files(output_dir=None, force=False):
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to download {filename}: {e}")
 
+def get_scaffold_n50_for_species(taxon_id):
+    """
+    Retrieves the Scaffold N50 value for a given species by its taxon ID.
+    
+    Parameters:
+    taxon_id (str): The taxon ID of the species.
+    
+    Returns:
+    int: The Scaffold N50 value in base units.
+    """
+    reference_genome_url = get_reference_genome_link(taxon_id)
+    full_reference_genome_url = f"https://www.ncbi.nlm.nih.gov{reference_genome_url}"
+    scaffold_n50 = get_scaffold_n50(full_reference_genome_url)
+    return scaffold_n50
+
+# Helper functions
 def download_from_bvbrc(ftp_path, save_path):
     """
     Download a file from the BV-BRC FTP server.
@@ -107,7 +125,6 @@ def download_from_bvbrc(ftp_path, save_path):
         ftp.login()
         with open(save_path, 'wb') as f:
             ftp.retrbinary(f'RETR {ftp_path}', f.write)
-
 
 def download_from_ncbi(query, save_path, email='your_email@example.com'):
     """
@@ -129,3 +146,85 @@ def download_from_ncbi(query, save_path, email='your_email@example.com'):
         handle = Entrez.efetch(db='genome', id=ids[0], rettype='gb', retmode='text')
         with open(save_path, 'w') as f:
             f.write(handle.read())
+
+def get_reference_genome_link(taxon_id):
+    """
+    Retrieves the reference genome link from NCBI for a given taxon ID.
+    
+    Parameters:
+    taxon_id (str): The taxon ID of the species.
+    
+    Returns:
+    str: The URL of the reference genome page.
+    """
+    url = f"https://www.ncbi.nlm.nih.gov/datasets/taxonomy/{taxon_id}"
+    response = requests.get(url)
+    response.raise_for_status()
+    
+    soup = BeautifulSoup(response.content, 'html.parser')
+    reference_genome_link = None
+    
+    # Find the link below the "Reference genome" heading
+    reference_genome_heading = soup.find(text="Reference genome")
+    if reference_genome_heading:
+        reference_genome_link_tag = reference_genome_heading.find_next('a', href=True)
+        if reference_genome_link_tag:
+            reference_genome_link = reference_genome_link_tag['href']
+    
+    if reference_genome_link is None:
+        raise ValueError(f"Reference genome link not found for taxon ID {taxon_id}")
+    
+    return reference_genome_link
+
+def get_scaffold_n50(reference_genome_url):
+    """
+    Retrieves the Scaffold N50 value from the reference genome page.
+    
+    Parameters:
+    reference_genome_url (str): The URL of the reference genome page.
+    
+    Returns:
+    int: The Scaffold N50 value in base units.
+    """
+    response = requests.get(reference_genome_url)
+    response.raise_for_status()
+    
+    soup = BeautifulSoup(response.content, 'html.parser')
+    scaffold_n50 = None
+    
+    # Find the Scaffold N50 value under the RefSeq column
+    assembly_statistics_heading = soup.find(text="Assembly statistics")
+    if assembly_statistics_heading:
+        table = assembly_statistics_heading.find_next('table')
+        if table:
+            rows = table.find_all('tr')
+            for row in rows:
+                cells = row.find_all('td')
+                if len(cells) >= 2 and "Scaffold N50" in cells[0].text:
+                    scaffold_n50 = cells[1].text
+                    break
+    
+    if scaffold_n50 is None:
+        raise ValueError(f"Scaffold N50 value not found at {reference_genome_url}")
+    
+    return _convert_to_int(scaffold_n50)
+
+
+def _convert_to_int(value_str):
+    """
+    Converts a string with units to an integer.
+    
+    Parameters:
+    value_str (str): The string containing the numeric value and units (e.g., "5.3 Mb").
+    
+    Returns:
+    int: The numeric value in base units.
+    """
+    units = {'Kb': 1e3, 'Mb': 1e6, 'Gb': 1e9}
+    value, unit = value_str.split()
+    return int(float(value) * units[unit])
+
+# Example usage:
+taxon_id = "1314"  # Streptococcus pyogenes
+scaffold_n50 = get_scaffold_n50_for_species(taxon_id)
+print(f"Scaffold N50 for taxon ID {taxon_id}: {scaffold_n50}")
