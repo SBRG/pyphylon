@@ -171,16 +171,15 @@ def get_reference_genome_link(taxon_id):
     reference_genome_link = None
     
     # Find the <h3> tag with the class and text "Reference genome"
-    reference_genome_heading = soup.find('h3', class_='MuiTypography-root MuiTypography-h4 css-1jkdc64', string="Reference genome")
-    if reference_genome_heading:
-        logging.info("Found 'Reference genome' heading.")
-        # Find the <a> tag within the following <p> tag that contains the link
-        reference_genome_link_tag = reference_genome_heading.find_next('p').find('a', class_='MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineHover css-m18yf3')
-        if reference_genome_link_tag:
-            logging.info(f"Found reference genome link: {reference_genome_link_tag['href']}")
-            reference_genome_link = reference_genome_link_tag['href']
+    reference_genome_link_tag = soup.find(
+        'a',
+        class_='MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineHover css-m18yf3'
+    )
+    if reference_genome_link_tag:
+        logging.info(f"Found reference genome link: {reference_genome_link_tag['href']}")
+        reference_genome_link = reference_genome_link_tag['href']
     else:
-        logging.warning(f"'Reference genome' heading not found for taxon ID {taxon_id}.")
+        logging.warning(f"Reference genome link not found for taxon ID {taxon_id}.")
     
     if reference_genome_link is None:
         raise ValueError(f"Reference genome link not found for taxon ID {taxon_id}")
