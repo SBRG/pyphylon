@@ -2,6 +2,7 @@
 Functions for handling dimension-reduction models of pangenome data.
 """
 
+from pyexpat import model
 import numpy as np
 import pandas as pd
 from typing import Iterable
@@ -14,6 +15,10 @@ from umap import UMAP
 from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
+
+################################
+#           Functions          #
+################################
 
 # Multiple Corresspondence Analysis (MCA)
 def run_mca(data):
@@ -106,9 +111,9 @@ def binarize_nmf_outputs(L_norm_dict, A_norm_dict):
     return L_binarized_dict, A_binarized_dict
 
 def generate_nmf_reconstructions(data, L_binarized_dict, A_binarized_dict):
-    '''
+    """
     Calculate model reconstr, error, & confusion matrix for each L_bin & A_bin
-    '''
+    """
     P_reconstructed_dict = {}
     P_error_dict = {}
     P_confusion_dict = {}
@@ -133,9 +138,9 @@ def calculate_nmf_reconstruction_metrics(
         P_reconstructed_dict,
         P_confusion_dict
     ):
-    '''
+    """
     Calculate all reconstruction metrics from the generated confusion matrix
-    '''
+    """
     df_metrics = pd.DataFrame()
 
     for rank in tqdm(P_reconstructed_dict, desc='Tabulating metrics...'):
@@ -147,28 +152,33 @@ def calculate_nmf_reconstruction_metrics(
     return df_metrics
 
 # Polytope Vertex Group Extraction (PVGE)
-def run_polytope_vertex_group_extraction(
-        data,
-        low_memory=False,
-        core_dist_n_jobs=8
+def run_densmap(
+        data: pd.DataFrame,
+        low_memory: bool = False,
+        n_neighbors: int = None
     ):
     """
-    Run DensMAP + HDBSCAN on the (polytopic) dataset.
+    Run DensMAP for density-preserving, nonlinear dimension reduction.
 
-    Note: Polytopic dataset means the column vectors of data
-    lie on the vertex of a polytope (e.g. hypercube)
+    This reduction can be run on `data` as well as its transpose `data.T`.
 
     Parameters:
-    - data: DataFrame containing the dataset to be analyzed.
-    - low_memory: Boolean, passed onto UMAP to optimize memory usage.
-    - core_dist_n_jobs: Integer, num of jobs for core dist calcs in UMAP.
+    - data (pd.DataFrame): Data to be embedded for dimension-reduction.
+    - low_memory (bool): Passed onto UMAP to optimize memory usage.
+    - n_neighbors (int): Passed onto UMAP to determine local/global dim. red.
 
     Returns:
-    - Cluster labels from HDBSCAN.
+    - densmap (UMAP): A DensMAP model object fitted to data.
+    - embedding (pd.DataFrame): A DataFrame of the reduced embedding.
     """
+    if n_neighbors:
+        n_neighbors = _check_n_neighbors(data, n_neighbors)
+    else:
+        n_neighbors = 0.01 * min(data.shape)
+    
     densmap = UMAP(
         n_components=3,
-        n_neighbors=0.01 * min(data.shape),
+        n_neighbors=n_neighbors,
         metric='cosine',
         min_dist=0.0,
         random_state=42,
@@ -177,71 +187,115 @@ def run_polytope_vertex_group_extraction(
     )
 
     embedding = densmap.fit_transform(data)
+    return densmap, embedding
 
+def run_hdbscan(
+        embedding: pd.DataFrame,
+        max_range: int = None,
+        core_dist_n_jobs: int = 8
+):
+    """
+    Run HDBSCAN across various cluster sizes and sample sizes.
+
+    Returns a multi-indexed DataFrame of models and their relevant
+    metrics.
+
+    Parameters:
+    - embedding (pd.DataFrame): Dimensionally-reduced dataset to cluster
+    - max_range (int): max range for hyperparameter tuning
+    - core_dist_n_jobs (int): Num of parallel jobs to run for core dist calcs
+
+    Returns:
+    - best_model (HDBSCAN): the best fitting model
+    - best_labels (np.array): the clustering label predictions of best_model
+    - df_models_with_metrics (pd.DataFrame): DataFrame of models with metrics
+    """
     # Define ranges for HDBSCAN parameters to tune
-    max_size = 0.05 * min(data.shape)
-    if max_size < 100:
+    max_size = 0.05 * max(embedding.shape)
+    if max_range < 100:
         max_size = 100
+    else:
+        max_size = max_range
     
     min_cluster_sizes = np.linspace(start=5, stop=max_size, num=5).astype(int)
     min_samples_range = np.linspace(start=5, stop=max_size, num=5).astype(int)
     
+    # Initialize criteria for comparing HDBSCAN models
     best_relative_validity = -1
-    return_dict = {}
-    
+    best_model = None
+    best_labels = None
+
+    # Create a MultiIndex DataFrame to store results
+    index = pd.MultiIndex.from_product(
+        iterables=[min_cluster_sizes, min_samples_range],
+        names=['min_cluster_size', 'min_samples']
+    )
+    models_df = pd.DataFrame(
+        index=index,
+        columns=['model', 'labels', 'relative_validity', 'silhouette_score']
+    )
+
     # Iterate over combinations of min_cluster_size and min_samples
     for min_cluster_size in tqdm(
         min_cluster_sizes,
-        desc='Tuning over various cluster sizes'
+        desc='Tuning over min. cluster sizes'
     ):
         for min_samples in tqdm(
             min_samples_range,
-            desc='Tuning over various sample sizes',
+            desc='Tuning over min. sample sizes',
             leave=False
         ):
             clusterer = HDBSCAN(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
-                metric='euclidean'
+                metric='euclidean',
+                core_dist_n_jobs=core_dist_n_jobs
             )
             labels = clusterer.fit_predict(embedding)
 
-            # Evaluate clustering if more than one cluster and noise (-1) is less prevalent
+            # Evaluate clustering if > 1 cluster and noise (-1) < 50%
             if len(set(labels)) > 1 and np.count_nonzero(labels != -1) / len(labels) > 0.5:
                 score = silhouette_score(embedding, labels)
-
                 if clusterer.relative_validity_ > best_relative_validity:
-                    return_dict = {
-                        'min_cluster_size': min_cluster_size,
-                        'min_samples': min_samples,
-                        'silhouette_score': score,
-                        'best_model': clusterer
-                    }
+                    best_model = clusterer
+                    best_labels = labels
+                    best_model_sil_score = score
+                    best_relative_validity = clusterer.relative_validity_
+            
             else:
-                continue
+                score = -1
+            
+            models_df.loc[(min_cluster_size, min_samples), 'model'] = clusterer
+            models_df.loc[(min_cluster_size, min_samples), 'labels'] = labels
+            models_df.loc[(min_cluster_size, min_samples), 'relative_validity'] = clusterer.relative_validity_
+            models_df.loc[(min_cluster_size, min_samples), 'silhouette_score'] = score
     
-    return return_dict
+    return best_model, best_labels, best_model_sil_score, models_df
+
+################################
+#           Classes            #
+################################
 
 # Container for NMF models for easy loading into NmfData
 class NmfModel(object):
-    '''
+    """
     Class representation of NMF models and their reconstructions w/metrics
-    '''
+    """
 
     def __init__(
             self,
             data: pd.DataFrame,
             ranks: Iterable,
             max_iter: int = 10_000
-        ):
-        '''
+        ) -> None:
+        """
         Initialize the NmfModel object w/ required data matrix and rank list.
 
         Parameters:
         - data: DataFrame on which NMF will be run
         - ranks: Iterable of ranks on which to perform NMF
         - max_iter: Integer, Max num of iters for convergence, default 10_000
-        '''
+        """
 
         self._data = data
         self._ranks = ranks
@@ -258,23 +312,22 @@ class NmfModel(object):
         self._P_error_dict = None
         self._P_confusion_dict = None
         self._df_metrics = None
-
     
     @property
     def data(self):
-        '''Get input data for NMF models'''
+        """Get input data for NMF models"""
         return self._data
     
     @property
     def ranks(self):
-        '''Get ranks on which NMF will be performed'''
+        """Get ranks on which NMF will be performed"""
         return self._ranks
     
     # If None, compute the following properties when called
     
     @property
     def W_dict(self):
-        '''Get a dictionary of raw W matrices across chosen ranks'''
+        """Get a dictionary of raw W matrices across chosen ranks"""
         if not self._W_dict:
             W_dict, H_dict = run_nmf(
                 self._data,
@@ -292,7 +345,7 @@ class NmfModel(object):
 
     @property
     def H_dict(self):
-        '''Get a dictionary of raw H matrices across chosen ranks'''
+        """Get a dictionary of raw H matrices across chosen ranks"""
         if not self._H_dict:
             W_dict, H_dict = run_nmf(
                 self._data,
@@ -310,7 +363,7 @@ class NmfModel(object):
     
     @property
     def L_norm_dict(self):
-        '''Get a dictionary of L matrices across chosen ranks'''
+        """Get a dictionary of L matrices across chosen ranks"""
         if not self._L_norm_dict:
             L_norm_dict, A_norm_dict = normalize_nmf_outputs(
                 self.data,
@@ -328,7 +381,7 @@ class NmfModel(object):
 
     @property
     def A_norm_dict(self):
-        '''Get a dictionary of A matrices across chosen ranks'''
+        """Get a dictionary of A matrices across chosen ranks"""
         if not self._A_norm_dict:
             L_norm_dict, A_norm_dict = normalize_nmf_outputs(
                 self.data,
@@ -346,7 +399,7 @@ class NmfModel(object):
 
     @property
     def L_binarized_dict(self):
-        '''Get a dictionary of binarized L matrices across chosen ranks'''
+        """Get a dictionary of binarized L matrices across chosen ranks"""
         if not self._L_binarized_dict:
             L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
                 self.L_norm_dict,
@@ -363,7 +416,7 @@ class NmfModel(object):
 
     @property
     def A_binarized_dict(self):
-        '''Get a dictionary of binarized A matrices across chosen ranks'''
+        """Get a dictionary of binarized A matrices across chosen ranks"""
         if not self._A_binarized_dict:
             L_binarized_dict, A_binarized_dict = binarize_nmf_outputs(
                 self.L_norm_dict,
@@ -380,9 +433,9 @@ class NmfModel(object):
     
     @property
     def P_reconstructed_dict(self):
-        '''
+        """
         Get a dictionary of the reconstructed data from post-processed NMF.
-        '''
+        """
         if not self._P_reconstructed_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -401,9 +454,9 @@ class NmfModel(object):
     
     @property
     def P_error_dict(self):
-        '''
+        """
         Get a dictionary of errors between orig and reconstr data matrices.
-        '''
+        """
         if not self._P_error_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -422,9 +475,9 @@ class NmfModel(object):
     
     @property
     def P_confusion_dict(self):
-        '''
+        """
         Get a dictionary of the confusion matrix.
-        '''
+        """
         if not self._P_confusion_dict:
             reconstr, error, confusion = generate_nmf_reconstructions(
                 self.data,
@@ -443,9 +496,9 @@ class NmfModel(object):
     
     @property
     def df_metrics(self):
-        '''
+        """
         Return a table of metrics for NMF model reconstructions across ranks.
-        '''
+        """
         if not self._df_metrics:
             df_metrics = calculate_nmf_reconstruction_metrics(
                 self.P_reconstructed_dict,
@@ -460,11 +513,178 @@ class NmfModel(object):
          self.df_metrics = new_dict
 
 
+# Container for PVGE models for easy loading into NmfData
+class PVGE(object):
+    """
+    Class representation of PVGE models and their metrics.
+
+    Polytope Vertex-Group Extraction (PVGE) is a technique
+    meant for extracting characteristic clusters from a
+    polytopic dataset. It is meant for binary datasets which
+    inherently generate data that lies on the vertex of a
+    hypercube. DensMAP is first run to identify vertex-group
+    clusters, which are then extracted with HDBSCAN. For
+    pangenomic data (e.g. P matrix), this approach yields
+    clusters with high concordance with Mash clusters and
+    known MLST values, showcasing the clustering does indeed
+    capture an underlying biological reality. These clusters
+    also match up well with NMF-derived phylons
+    """
+    def __init__(
+            self,
+            data: pd.DataFrame,
+            low_memory: bool = False,
+            n_neighbors: int = None,
+            max_range: int = None,
+            core_dist_n_jobs: int = 8
+    ) -> None:
+        
+        # data
+        self._data = data
+
+        # densmap
+        self._densmap = None
+        self._low_memory = low_memory
+        
+        if n_neighbors:
+            self._n_neighbors = _check_n_neighbors(data, n_neighbors)
+        else:
+            self._n_neighbors = 0.01 * min(data.shape)
+        
+        # hdbscan
+        self._hdbscan_best_model = None
+        self._hdbscan_best_model_sil_score = None
+        self._hdbscan_tuning_metrics = None
+        self._max_range = max_range
+        self._core_dist_n_jobs = core_dist_n_jobs
+        self._labels = None
+    
+    # Properties
+    @property
+    def data(self):
+        return self._data
+    
+    @property
+    def densmap(self):
+        if not self._densmap:
+            self._densmap, self._embedding = run_densmap(
+                self._data,
+                self._low_memory,
+                self._n_neighbors
+            )
+        
+        return self._densmap
+    
+    @property
+    def embedding(self):
+        if not self._embedding:
+            self._densmap, self._embedding = run_densmap(
+                self._data,
+                self._low_memory,
+                self._n_neighbors
+            )
+        
+        return self._embedding
+    
+    @property
+    def n_neighbors(self):
+        return self._n_neighbors
+    
+    @property
+    def hdbscan(self):
+        if not self._hdbscan_best_model:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_best_model
+    
+    @property
+    def labels(self):
+        if not self._labels:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._labels
+    
+    @property
+    def silhouette_score(self):
+        if not self._hdbscan_best_model_sil_score:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_best_model_sil_score
+    
+    @property
+    def hdbscan_tuning_metrics(self):
+        if not self._hdbscan_tuning_metrics:
+            best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+                self._embedding,
+                self._max_range,
+                self._core_dist_n_jobs
+            )
+            self._hdbscan_best_model = best_model
+            self._labels = best_labels
+            self._hdbscan_best_model_sil_score = best_model_sil_score
+            self._hdbscan_tuning_metrics = models_df
+        
+        return self._hdbscan_tuning_metrics
+    
+    # Class methods
+    def run_densmap(self, low_memory: bool = False):
+        if low_memory:
+            self._low_memory = low_memory
+        
+        densmap, embedding = run_densmap(
+            self._data,
+            self._low_memory,
+            self._n_neighbors
+        )
+        self._densmap = densmap
+        self._embedding = embedding
+    
+    def run_hdbscan(self, max_range: int = None, core_dist_n_jobs: int = None):
+        if max_range:
+            self._max_range = max_range
+        if core_dist_n_jobs:
+            self._core_dist_n_jobs = core_dist_n_jobs
+        
+        best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
+            self.embedding,
+            self._max_range,
+            self._core_dist_n_jobs
+        )
+        self._hdbscan_best_model = best_model
+        self._labels = best_labels
+        self._hdbscan_best_model_sil_score = best_model_sil_score
+        self._hdbscan_tuning_metrics = models_df
+
+
 # Helper functions
 def _k_means_binarize_L(L_norm):
-    '''
+    """
     Use k-means clustering (k=3) to binarize L_norm matrix.
-    '''
+    """
     
     # Initialize an empty array to hold the binarized matrix
     L_binarized = np.zeros_like(L_norm.values)
@@ -504,9 +724,9 @@ def _k_means_binarize_L(L_norm):
     return L_binarized
 
 def _k_means_binarize_A(A_norm):
-    '''
+    """
     Use k-means clustering (k=3) to binarize A_norm matrix.
-    '''
+    """
     # Initialize an empty array to hold the binarized matrix
     A_binarized = np.zeros_like(A_norm.values)
     
@@ -627,3 +847,14 @@ def _calculate_metrics(P_confusion):
         'MCC': MCC,
         'Jaccard Index': Jaccard_index
     }
+
+def _check_n_neighbors(data, n_neighbors):
+    max_n = int(0.5 * min(data.shape))
+
+    if n_neighbors > max_n:
+        raise ValueError(
+            f"n_neighbors is set too high at {n_neighbors},"
+            "max allowed is {max_n} based on data shape of {data.shape})"
+        )
+    
+    return n_neighbors

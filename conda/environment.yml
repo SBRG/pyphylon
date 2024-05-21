@@ -1,0 +1,21 @@
+name: pyphylon-test
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - tqdm
+  - matplotlib
+  - seaborn
+  - plotly
+  - umap-learn
+  - hdbscan
+  - pip
+  - pip:
+    - prince
+    - kneebow
