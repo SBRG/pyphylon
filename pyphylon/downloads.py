@@ -18,38 +18,49 @@ GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_
 # TODO: Add in functions to download selected strains
 # TODO: Add in functions to download from NCBI (including RefSeq)
 
-def download_bvbrc_genome_info_files(force=False):
+def download_bvbrc_genome_info_files(output_dir=None, force=False):
     """
     Download genome summary, genome metadata, and PATRIC_genome_AMR files
     from BV-BRC. If files already exist, they will not be downloaded unless
     force=True.
     
     Parameters:
+    - output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
     - force (bool): Boolean indicating whether to force re-download of files.
     """
-    _ensure_directories_exist()
-    
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Set the default output directory to the current working directory if output_dir is None
+    if output_dir is None:
+        output_dir = os.getcwd()
+    else:
+        # Ensure the output directory exists
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
     files_to_download = {
-        'genome_summary': 'RELEASE_NOTES/genome_summary',
-        'genome_metadata': 'RELEASE_NOTES/genome_metadata',
-        'PATRIC_genome_AMR': 'RELEASE_NOTES/PATRIC_genome_AMR.txt'
+        'genome_summary.tsv': 'RELEASE_NOTES/genome_summary',
+        'genome_metadata.tsv': 'RELEASE_NOTES/genome_metadata',
+        'PATRIC_genome_AMR.tsv': 'RELEASE_NOTES/PATRIC_genome_AMR.txt'
     }
 
     for file_name, ftp_path in files_to_download.items():
-        local_path = os.path.join(DATA_DIR, file_name)
+        local_path = os.path.join(output_dir, file_name)
         if not os.path.exists(local_path) or force:
-            print(f"Downloading {file_name} from {ftp_path}...")
+            logging.info(f"Downloading {file_name} from {ftp_path}...")
             download_from_bvbrc(ftp_path, local_path)
         else:
-            print(f"{file_name} already exists. Skipping download. Use force=True to re-download.")
+            logging.info(f"{file_name} already exists. Skipping download. Use force=True to re-download.")
+            continue
 
 def download_example_bvbrc_genome_files(output_dir=None, force=False):
     """
     Downloads genome metadata and summary files from Zenodo.
     
     Parameters:
-    output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
-    force (bool): Force download even if the file already exists. Defaults to False.
+    - output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
+    - force (bool): Force download even if the file already exists. Defaults to False.
     """
     # Configure logging
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -129,12 +140,3 @@ def download_from_ncbi(query, save_path, email='your_email@example.com'):
         handle = Entrez.efetch(db='genome', id=ids[0], rettype='gb', retmode='text')
         with open(save_path, 'w') as f:
             f.write(handle.read())
-
-# Helper function
-def _ensure_directories_exist():
-    """
-    Ensure that necessary directories exist.
-    """
-    os.makedirs(GENOME_SUMMARY_DIR, exist_ok=True)
-    os.makedirs(GENOME_METADATA_DIR, exist_ok=True)
-    os.makedirs(PATRIC_GENOME_AMR_DIR, exist_ok=True)
