@@ -4,13 +4,14 @@ Functions for downloading genomes.
 
 import os
 import ftplib
+import requests
+import logging
 from Bio import Entrez
 
-# Directory locations
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'metadata')
-GENOME_SUMMARY_DIR = os.path.join(DATA_DIR, 'genome_summary')
-GENOME_METADATA_DIR = os.path.join(DATA_DIR, 'genome_metadata')
-PATRIC_GENOME_AMR_DIR = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
+# URLs
+GENOME_SUMMARY_URL = "https://zenodo.org/record/11226678/files/genome_summary_Oct_12_23.tsv?download=1"
+GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_Oct_12_23.tsv?download=1"
+# PATRIC_GENOME_AMR_URL = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
 
 
 # TODO: Add in checks from 1b and deduplication
@@ -41,6 +42,41 @@ def download_bvbrc_genome_info_files(force=False):
         else:
             print(f"{file_name} already exists. Skipping download. Use force=True to re-download.")
 
+def download_example_bvbrc_genome_files(output_dir=None):
+    """
+    Downloads example genome metadata and summary files from Zenodo
+    
+    Parameters:
+    output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
+    """
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
+    # Set the default output directory to the current working directory if output_dir is None
+    if output_dir is None:
+        output_dir = os.getcwd()
+    else:
+        # Ensure the output directory exists
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    
+    # Define the URLs for the files to be downloaded
+    urls = {
+        "genome_metadata_Oct_12_23.tsv": GENOME_METADATA_URL,
+        "genome_summary_Oct_12_23.tsv": GENOME_SUMMARY_URL
+    }
+    
+    # Download each file
+    for filename, url in urls.items():
+        file_path = os.path.join(output_dir, filename)
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Check if the request was successful
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            logging.info(f"Downloaded {filename} to {file_path}")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to download {filename}: {e}")
 
 def download_from_bvbrc(ftp_path, save_path):
     """
