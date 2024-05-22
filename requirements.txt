@@ -11,3 +11,5 @@ umap-learn
 hdbscan
 prince
 kneebow
+selenium
+webdriver-manager

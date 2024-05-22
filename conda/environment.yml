@@ -8,6 +8,7 @@ dependencies:
   - numpy
   - pandas
   - scipy
+  - biopython
   - scikit-learn
   - tqdm
   - matplotlib
@@ -15,6 +16,8 @@ dependencies:
   - plotly
   - umap-learn
   - hdbscan
+  - selenium
+  - webdriver-manager
   - pip
   - pip:
     - prince
