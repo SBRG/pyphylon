@@ -7,7 +7,9 @@ import ftplib
 import logging
 import time
 import requests
+import pandas as pd
 
+from typing import Union
 from Bio import Entrez
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -24,9 +26,9 @@ GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_
 
 
 # TODO: Add in checks from 1b and deduplication
-# TODO: Add in functions to download selected strains
 # TODO: Add in functions to download from NCBI (including RefSeq)
 
+# Genome info downloads
 def download_bvbrc_genome_info_files(output_dir=None, force=False):
     """
     Download genome summary, genome metadata, and PATRIC_genome_AMR files
@@ -34,7 +36,7 @@ def download_bvbrc_genome_info_files(output_dir=None, force=False):
     force=True.
     
     Parameters:
-    - output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
+    - output_dir (str): Directory to save the downloaded files. Defaults to the curr work dir if None.
     - force (bool): Boolean indicating whether to force re-download of files.
     """
     # Configure logging
@@ -65,10 +67,10 @@ def download_bvbrc_genome_info_files(output_dir=None, force=False):
 
 def download_example_bvbrc_genome_files(output_dir=None, force=False):
     """
-    Downloads genome metadata and summary files from Zenodo.
+    Downloads example genome metadata and summary files (Oct 12 2023) from Zenodo.
     
     Parameters:
-    - output_dir (str): Directory to save the downloaded files. Defaults to the current working directory if None.
+    - output_dir (str): Directory to save the downloaded files. Defaults to the curr work dir if None.
     - force (bool): Force download even if the file already exists. Defaults to False.
     """
     # Configure logging
@@ -104,6 +106,57 @@ def download_example_bvbrc_genome_files(output_dir=None, force=False):
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to download {filename}: {e}")
 
+# Genome file downloads
+def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir):
+    """
+    Download .fna and .gff files for strains from a DataFrame.
+
+    Parameters:
+    - df_or_filepath (str or DataFrame): DataFrame or filepath of the DataFrame.
+    - output_dir (str): Directory to save the downloaded files.
+    """
+    # Load the DataFrame directly or from a provided path
+    if isinstance(df_or_filepath, pd.DataFrame):
+        df = df_or_filepath.copy()
+    elif str(df_or_filepath).endswith('.csv'):
+        df = pd.read_csv(df_or_filepath, index_col=0, dtype='object')
+    elif str(df_or_filepath).endswith('.pickle') or str(df_or_filepath).endswith('.pickle.gz'):
+        df = pd.read_pickle(df_or_filepath)
+    else:
+        raise TypeError(f"df_or_filepath must be a DataFrame or a str/filepath. An object of type {type(df_or_filepath)} was passed instead.")
+    
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Make subfolders for fna and gff files
+    fna_subdir = os.path.join(output_dir, 'fna')
+    gff_subdir = os.path.join(output_dir, 'gff')
+
+    # Ensure the output subdirectories exist
+    if not os.path.exists(fna_subdir):
+        os.makedirs(fna_subdir)
+    if not os.path.exists(gff_subdir):
+        os.makedirs(gff_subdir)
+
+    # Iterate through the strains in the DataFrame
+    for genome_id in df['genome_id'].astype('str'):
+        
+        # Construct FTP paths for .fna and .gff files
+        fna_ftp_path = f"ftp://ftp.bvbrc.org/genomes/{genome_id}/{genome_id}.fna"
+        gff_ftp_path = f"ftp://ftp.bvbrc.org/genomes/{genome_id}/{genome_id}.PATRIC.gff"
+        
+        # Construct local save paths
+        fna_save_path = os.path.join(fna_subdir, f"{genome_id}.fna")
+        gff_save_path = os.path.join(gff_subdir, f"{genome_id}.gff")
+        
+        # Download the .fna file
+        download_from_bvbrc(fna_ftp_path, fna_save_path)
+        
+        # Download the .gff file
+        download_from_bvbrc(gff_ftp_path, gff_save_path)
+
+# Retrieval functions
 def get_scaffold_n50_for_species(taxon_id):
     """
     Retrieves the Scaffold N50 value for a given species by its taxon ID.
