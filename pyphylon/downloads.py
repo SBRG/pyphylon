@@ -4,9 +4,16 @@ Functions for downloading genomes.
 
 import os
 import ftplib
-import requests
 import logging
+import time
+import requests
+
 from Bio import Entrez
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 
 
@@ -164,15 +171,26 @@ def get_reference_genome_link(taxon_id):
     str: The URL of the reference genome page.
     """
     url = f"https://www.ncbi.nlm.nih.gov/datasets/taxonomy/{taxon_id}"
-    response = requests.get(url)
-    response.raise_for_status()
-    
-    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # Set up Selenium WebDriver
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run headless
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    driver.get(url)
+
+    # Allow time for JavaScript to execute
+    time.sleep(5)  # Adjust as needed for the page to load completely
+
+    # Extract page source and parse with BeautifulSoup
+    page_source = driver.page_source
+    driver.quit()
+
+    soup = BeautifulSoup(page_source, 'html.parser')
     reference_genome_link = None
     
     # Find the <a> tag with '/datasets/genome' in its href attribute
     for link in soup.find_all('a', href=True):
-        if '/datasets/genome/' in link['href']:
+        if '/datasets/genome/GC' in link['href']:
             reference_genome_link = link['href']
             logging.info(f"Found reference genome link: {reference_genome_link}")
             break
@@ -184,7 +202,7 @@ def get_reference_genome_link(taxon_id):
 
 def get_scaffold_n50(reference_genome_url):
     """
-    Retrieves the Scaffold N50 value from the reference genome page.
+    Retrieves the Scaffold N50 value from the reference genome page using Selenium.
     
     Parameters:
     reference_genome_url (str): The URL of the reference genome page.
@@ -192,27 +210,34 @@ def get_scaffold_n50(reference_genome_url):
     Returns:
     int: The Scaffold N50 value in base units.
     """
-    response = requests.get(reference_genome_url)
-    response.raise_for_status()
-    
-    soup = BeautifulSoup(response.content, 'html.parser')
+    # Set up Selenium WebDriver
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run headless
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    driver.get(reference_genome_url)
+
+    # Allow time for JavaScript to execute
+    time.sleep(5)  # Adjust as needed for the page to load completely
+
+    # Extract page source and parse with BeautifulSoup
+    page_source = driver.page_source
+    driver.quit()
+
+    soup = BeautifulSoup(page_source, 'html.parser')
     scaffold_n50 = None
     
-    # Find the Scaffold N50 value under the RefSeq column
-    assembly_statistics_heading = soup.find(text="Assembly statistics")
-    if assembly_statistics_heading:
-        logging.info("Found 'Assembly statistics' heading.")
-        table = assembly_statistics_heading.find_next('table')
-        if table:
-            rows = table.find_all('tr')
-            for row in rows:
-                cells = row.find_all('td')
-                if len(cells) >= 2 and "Scaffold N50" in cells[0].text:
-                    scaffold_n50 = cells[1].text.strip()
-                    logging.info(f"Found Scaffold N50 value: {scaffold_n50}")
-                    break
+    # Find the <td> element containing the text "Scaffold N50" and the next <td> element
+    scaffold_n50_td = soup.find('td', text="Scaffold N50")
+    if scaffold_n50_td:
+        logging.info("Found 'Scaffold N50' cell.")
+        next_td = scaffold_n50_td.find_next('td')
+        if next_td:
+            scaffold_n50 = next_td.text.strip()
+            logging.info(f"Found Scaffold N50 value: {scaffold_n50}")
+        else:
+            logging.warning(f"No following <td> element found for 'Scaffold N50'.")
     else:
-        logging.warning(f"'Assembly statistics' heading not found at {reference_genome_url}.")
+        logging.warning(f"'Scaffold N50' cell not found in the table.")
     
     if scaffold_n50 is None:
         raise ValueError(f"Scaffold N50 value not found at {reference_genome_url}")
