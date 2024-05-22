@@ -107,13 +107,14 @@ def download_example_bvbrc_genome_files(output_dir=None, force=False):
             logging.error(f"Failed to download {filename}: {e}")
 
 # Genome file downloads
-def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir):
+def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir, force=False):
     """
     Download .fna and .gff files for strains from a DataFrame.
 
     Parameters:
     - df_or_filepath (str or DataFrame): DataFrame or filepath of the DataFrame.
     - output_dir (str): Directory to save the downloaded files.
+    - force (bool): Boolean indicating whether to force re-download of files.
     """
     # Load the DataFrame directly or from a provided path
     if isinstance(df_or_filepath, pd.DataFrame):
@@ -151,10 +152,10 @@ def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir):
         gff_save_path = os.path.join(gff_subdir, f"{genome_id}.gff")
         
         # Download the .fna file
-        download_from_bvbrc(fna_ftp_path, fna_save_path)
+        download_from_bvbrc(fna_ftp_path, fna_save_path, force)
         
         # Download the .gff file
-        download_from_bvbrc(gff_ftp_path, gff_save_path)
+        download_from_bvbrc(gff_ftp_path, gff_save_path, force)
 
 # Retrieval functions
 def get_scaffold_n50_for_species(taxon_id):
@@ -179,15 +180,23 @@ def get_scaffold_n50_for_species(taxon_id):
     return scaffold_n50
 
 # Helper functions
-def download_from_bvbrc(ftp_path, save_path):
+import os
+import ftplib
+
+def download_from_bvbrc(ftp_path, save_path, force=False):
     """
-    Download a file from the BV-BRC FTP server.
+    Download a file from BV-BRC FTP server.
 
     Parameters:
-    - ftp_path (str): Path to the file on the FTP server.
-    - save_path (str): Local path where the file will be saved.
+    - ftp_path (str): The FTP path of the file to download.
+    - save_path (str): The local path to save the downloaded file.
+    - force (bool): Boolean indicating whether to force re-download of files.
     """
-    with ftplib.FTP('ftp.bvbrc.org') as ftp:
+    if not force and os.path.exists(save_path):
+        print(f"File {save_path} already exists. Skipping download.")
+        return
+
+    with ftplib.FTP('ftp.bv-brc.org') as ftp:
         ftp.login()
         with open(save_path, 'wb') as f:
             ftp.retrbinary(f'RETR {ftp_path}', f.write)
