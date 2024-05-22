@@ -187,7 +187,8 @@ def _filter_checkM_contamination(species_wgs_summary, contamination_cutoff):
     - pd.DataFrame: Filtered DataFrame with genomes having contamination scores below the cutoff.
     """
     species_wgs_summary = species_wgs_summary.dropna(subset=['checkm_contamination'])
-    species_wgs_summary['checkm_contamination'] = species_wgs_summary['checkm_contamination'].astype('float')
+    float_values = species_wgs_summary['checkm_contamination'].copy().astype('float')
+    species_wgs_summary.loc[:,'checkm_contamination'] = float_values
     
     if contamination_cutoff:
         cond = species_wgs_summary['checkm_contamination'] < contamination_cutoff
