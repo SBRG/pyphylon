@@ -11,6 +11,7 @@ import pandas as pd
 
 from typing import Union
 from Bio import Entrez
+from tqdm.notebook import tqdm
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service as ChromeService
@@ -29,7 +30,7 @@ GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_
 # TODO: Add in functions to download from NCBI (including RefSeq)
 
 # Genome info downloads
-def download_bvbrc_genome_info_files(output_dir=None, force=False):
+def download_bvbrc_genome_info(output_dir=None, force=False):
     """
     Download genome summary, genome metadata, and PATRIC_genome_AMR files
     from BV-BRC. If files already exist, they will not be downloaded unless
@@ -116,12 +117,17 @@ def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir, 
     - output_dir (str): Directory to save the downloaded files.
     - force (bool): Boolean indicating whether to force re-download of files.
     """
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     # Load the DataFrame directly or from a provided path
     if isinstance(df_or_filepath, pd.DataFrame):
         df = df_or_filepath.copy()
     elif str(df_or_filepath).endswith('.csv'):
+        logging.info(f"Loading CSV file {df_or_filepath} to DataFrame...")
         df = pd.read_csv(df_or_filepath, index_col=0, dtype='object')
     elif str(df_or_filepath).endswith('.pickle') or str(df_or_filepath).endswith('.pickle.gz'):
+        logging.info(f"Loading DATAFRAME PICKLE file {df_or_filepath} to DataFrame...")
         df = pd.read_pickle(df_or_filepath)
     else:
         raise TypeError(f"df_or_filepath must be a DataFrame or a str/filepath. An object of type {type(df_or_filepath)} was passed instead.")
@@ -141,7 +147,8 @@ def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir, 
         os.makedirs(gff_subdir)
 
     # Iterate through the strains in the DataFrame
-    for genome_id in df['genome_id'].astype('str'):
+    logging.info(f"Downloading genomes from BV-BRC...")
+    for genome_id in tqdm(df['genome_id'].astype('str')):
         
         # Construct FTP paths for .fna and .gff files
         fna_ftp_path = f"ftp://ftp.bvbrc.org/genomes/{genome_id}/{genome_id}.fna"
@@ -180,9 +187,6 @@ def get_scaffold_n50_for_species(taxon_id):
     return scaffold_n50
 
 # Helper functions
-import os
-import ftplib
-
 def download_from_bvbrc(ftp_path, save_path, force=False):
     """
     Download a file from BV-BRC FTP server.
