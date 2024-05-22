@@ -197,7 +197,7 @@ def download_from_bvbrc(ftp_path, save_path, force=False):
     - force (bool): Boolean indicating whether to force re-download of files.
     """
     if not force and os.path.exists(save_path):
-        print(f"File {save_path} already exists. Skipping download.")
+        logging.info(f"File {save_path} already exists & force is set to False. Skipping download.")
         return
 
     with ftplib.FTP('ftp.bv-brc.org') as ftp:
