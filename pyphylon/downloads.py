@@ -66,7 +66,7 @@ def download_bvbrc_genome_info(output_dir=None, force=False):
             logging.info(f"{file_name} already exists. Skipping download. Use force=True to re-download.")
             continue
 
-def download_example_bvbrc_genome_files(output_dir=None, force=False):
+def download_example_bvbrc_genome_info(output_dir=None, force=False):
     """
     Downloads example genome metadata and summary files (Oct 12 2023) from Zenodo.
     
@@ -107,8 +107,8 @@ def download_example_bvbrc_genome_files(output_dir=None, force=False):
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to download {filename}: {e}")
 
-# Genome file downloads
-def download_genome_files(df_or_filepath: Union[str, pd.DataFrame], output_dir, force=False):
+# Genome sequence downloads
+def download_genome_sequences(df_or_filepath: Union[str, pd.DataFrame], output_dir, force=False):
     """
     Download .fna and .gff files for strains from a DataFrame.
 
