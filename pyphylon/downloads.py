@@ -256,7 +256,7 @@ def download_genomes_bvbrc(genomes, output_dir, filetypes=['fna','gff'], force=F
                     bad_genomes.append(genome)
 
     # Remove related "bad" genome files:
-    for bad_genome in bad_genomes:
+    for bad_genome in tqdm(bad_genomes, desc='Removing bad genome files...'):
         for ftype, subdir_path in subdir.items():
             bad_genome_path = os.path.join(subdir_path, f"{genome}.{ftype}")
             if os.path.exists(bad_genome_path):
