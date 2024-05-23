@@ -237,7 +237,7 @@ def download_genomes_bvbrc(genomes, output_dir, filetypes=['fna','gff'], force=F
         # Process individual files
         for source_filetype, target_filetype in source_target_filetypes:
             source = f"{genome_source}.{source_filetype}"
-            genome_target = f"{os.path.join(output_dir, subdir[target_filetype])}/{genome}"
+            genome_target = os.path.join(subdir[target_filetype], genome)
             target = f"{genome_target}.{target_filetype}"
 
             if os.path.exists(target) and not force:
