@@ -5,8 +5,10 @@ Functions for downloading genomes.
 import os
 import ftplib
 import logging
+import shutil
 import time
 import requests
+import urllib
 import pandas as pd
 
 from typing import Union
@@ -23,7 +25,10 @@ from bs4 import BeautifulSoup
 # URLs
 GENOME_SUMMARY_URL = "https://zenodo.org/record/11226678/files/genome_summary_Oct_12_23.tsv?download=1"
 GENOME_METADATA_URL = "https://zenodo.org/record/11226678/files/genome_metadata_Oct_12_23.tsv?download=1"
-# PATRIC_GENOME_AMR_URL = os.path.join(DATA_DIR, 'PATRIC_genome_AMR.txt')
+
+# Valid filetype options for BV-BRC genome sequence downloads
+VALID_BV_BRC_FILES = ['faa','features.tab','ffn','frn','gff','pathway.tab', 'spgene.tab','subsystem.tab','fna']
+
 
 
 # TODO: Add in checks from 1b and deduplication
@@ -151,8 +156,8 @@ def download_genome_sequences(df_or_filepath: Union[str, pd.DataFrame], output_d
     for genome_id in tqdm(df['genome_id'].astype('str')):
         
         # Construct FTP paths for .fna and .gff files
-        fna_ftp_path = f"ftp://ftp.bvbrc.org/genomes/{genome_id}/{genome_id}.fna"
-        gff_ftp_path = f"ftp://ftp.bvbrc.org/genomes/{genome_id}/{genome_id}.PATRIC.gff"
+        fna_ftp_path = f"genomes/{genome_id}/{genome_id}.fna"
+        gff_ftp_path = f"genomes/{genome_id}/{genome_id}.PATRIC.gff"
         
         # Construct local save paths
         fna_save_path = os.path.join(fna_subdir, f"{genome_id}.fna")
@@ -163,6 +168,104 @@ def download_genome_sequences(df_or_filepath: Union[str, pd.DataFrame], output_d
         
         # Download the .gff file
         download_from_bvbrc(gff_ftp_path, gff_save_path, force)
+
+def download_genomes_bvbrc(genomes, output_dir, filetypes=['fna','gff'], force=False):
+    '''
+    Download data associated with a list of PATRIC genomes.
+    
+    Parameters:
+    - genomes (list): List of strings containing PATRIC genome IDs to download
+    - output_dir (str): Path to directory to save genomes. Will create a subfolder for each filetype in filetypes
+    - filetypes (list): List of BV-BRC genome-specific files to download per genome.
+        Valid options include 'faa', 'features.tab', 'ffn', 'frn',
+        'gff', 'pathway.tab', 'spgene.tab', 'subsystem.tab', and
+        'fna'. 'PATRIC' in filename is dropped automatically.
+        See ftp://ftp.bvbrc.org/genomes/<genome id>/ for
+        examples (default ['fna','gff'])
+    - force (bool): If True, re-downloads files that exist locally (default False)
+    Returns:
+    - bad_genomes (list): List of PATRIC genome IDs that could not be downloaded
+    '''
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    # Initialize list of "bad" genomes that failed to download
+    bad_genomes = []
+    
+    # Ensure output directory exists
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    
+    # Initialize vars prior to looping
+    source_target_filetypes = []
+    subdir = dict.fromkeys(filetypes)
+
+    # Process filetypes
+    for ftype in tqdm(filetypes, desc='Processing filetypes...'):
+
+        # Make subfolders for each ftype
+        subdir[ftype] = os.path.join(output_dir, ftype)
+        if not os.path.exists(subdir[ftype]):
+            os.makedirs(subdir[ftype])
+
+        # Check if ftype is a valid BV-BRC filetype
+        if ftype in VALID_BV_BRC_FILES:
+            # all files except FNA preceded by "PATRIC"
+            ftype_source = f"PATRIC.{ftype}" if ftype != "fna" else ftype
+            # drop "PATRIC" in output files
+            ftype_target = ftype
+            source_target_filetypes.append( (ftype_source, ftype_target) )
+        
+        # Check if ftype without PATRIC label is a valid BV-BRC filetype
+        elif ftype.replace('PATRIC.','') in VALID_BV_BRC_FILES:
+            # keep "PATRIC" for downloading files
+            ftype_source = ftype
+            # drop "PATRIC" in output files
+            ftype_target = ftype.replace('PATRIC.','')
+            source_target_filetypes.append( (ftype_source, ftype_target) )
+        
+        # Invalid filetype
+        else:
+            logging.info(f"Invalid filetype: {ftype}")
+            continue
+    
+    # Download relevant files
+    for genome in tqdm(genomes, desc='Downloading selected files...', total=len(genomes)):
+        # Set up source and target locations
+        genome_source = f"ftp://ftp.bvbrc.org/genomes/{genome}/{genome}" # base link to genome files
+
+        # Process individual files
+        for source_filetype, target_filetype in source_target_filetypes:
+            source = f"{genome_source}.{source_filetype}"
+            genome_target = f"{os.path.join(output_dir, subdir[target_filetype])}/{genome}"
+            target = f"{genome_target}.{target_filetype}"
+
+            if os.path.exists(target) and not force:
+                logging.info(f"File {target} already exists and force is False. Skipping download.")
+            else:
+                logging.info(f"{source} -> {target}")
+                # Try to download file
+                try:                    
+                    urllib.request.urlretrieve(source, target)
+                    urllib.request.urlcleanup()
+                # genome ID not found
+                except IOError:
+                    logging.warning(f"Bad genome ID: {genome}")
+                    if os.path.exists(target):
+                        os.remove(target)
+                    bad_genomes.append(genome)
+
+    # Remove related "bad" genome files:
+    for bad_genome in bad_genomes:
+        for ftype, subdir_path in subdir.items():
+            bad_genome_path = os.path.join(subdir_path, f"{genome}.{ftype}")
+            if os.path.exists(bad_genome_path):
+                os.remove(bad_genome_path)
+            else:
+                continue
+    
+    # Return a list of bad genomes that failed to download
+    return bad_genomes
 
 # Retrieval functions
 def get_scaffold_n50_for_species(taxon_id):
