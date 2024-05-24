@@ -23,6 +23,13 @@ def sketch_genomes(genome_dir, output_file):
     # Configure logging
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+    # Ensure all ".fna" files in genome_dir are selected for
+    if not output_file.endswith('/*.fna'):
+        if output_file.endswith('/'):
+            output_file += "*.fna"
+        else:
+            output_file += "/*.fna"
+
     # Generate command
     cmd = [
         "mash", "sketch",
