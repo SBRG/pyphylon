@@ -97,6 +97,7 @@ def download_example_bvbrc_genome_info(output_dir=None, force=False):
     }
     
     # Download each file
+    logging.info("Starting download...")
     for filename, url in urls.items():
         file_path = os.path.join(output_dir, filename)
         if not force and os.path.exists(file_path):
