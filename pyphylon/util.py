@@ -2,9 +2,28 @@
 General utility functions for the pyphylon package.
 """
 
+import os
 import numpy as np
 import pandas as pd
 from tqdm.notebook import trange
+
+# Files and folders #
+
+def remove_empty_files(directory):
+    # Initialize list of empty files
+    empty_files = []
+
+    for file in os.listdir(directory):
+        file_path = os.path.join(directory, file)
+        if os.path.isfile(file_path):
+            size = os.path.getsize(file_path)
+            if size == 0:
+                empty_files.append(file)
+                os.remove(file_path)
+        else:
+            continue
+
+    return empty_files
 
 # Data validation #
 
