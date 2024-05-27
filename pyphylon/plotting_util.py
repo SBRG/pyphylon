@@ -675,3 +675,10 @@ def identify_genetic_variation(strain_vectors):
     print(result_df['Variation'].value_counts())
     
     return result_df
+
+def filter_genes_and_strains(gene_mapping_to_anchor_genes, L_binarized, A_binarized, phylon):
+    gene_list = list(L_binarized[phylon][L_binarized[phylon] == 1].index)
+    strain_list = list(A_binarized.loc[phylon][A_binarized.loc[phylon] == 1].index)
+    # Filter the DataFrame to only include specified genes and strains
+    filtered_df = gene_mapping_to_anchor_genes.loc[gene_list, strain_list]
+    return filtered_df
