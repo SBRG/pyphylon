@@ -1,6 +1,5 @@
 import logging
 import re
-import urllib
 from io import StringIO
 import pandas as pd
 import numpy as np
@@ -9,9 +8,7 @@ import matplotlib.pyplot as plt
 import gzip
 import pickle
 from tqdm.notebook import tqdm, trange
-import multiprocessing
 from IPython.display import display, HTML
-import itertools
 import plotly.graph_objects as go
 
 
