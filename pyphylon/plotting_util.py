@@ -676,9 +676,116 @@ def identify_genetic_variation(strain_vectors):
     
     return result_df
 
+def find_full_matches(phylon_strain_groups_counts, strain_groups):
+    # This will store the matching (row index, column index) pairs
+    full_matches = []
+    
+    # Iterate over the columns (strain groups) in the DataFrame
+    for group in phylon_strain_groups_counts.columns:
+        # Get the number of strains in the current group from strain_vectors_final
+        group_strain_count = len(strain_groups[group])
+        
+        # Find rows where the count matches the total number of strains in this group
+        matching_phylons = phylon_strain_groups_counts[phylon_strain_groups_counts[group] == group_strain_count].index
+        
+        # Collect the (index, column) pairs
+        for phylon in matching_phylons:
+            full_matches.append((phylon, group, group_strain_count))
+    
+    return full_matches
+
 def filter_genes_and_strains(gene_mapping_to_anchor_genes, L_binarized, A_binarized, phylon):
     gene_list = list(L_binarized[phylon][L_binarized[phylon] == 1].index)
     strain_list = list(A_binarized.loc[phylon][A_binarized.loc[phylon] == 1].index)
     # Filter the DataFrame to only include specified genes and strains
     filtered_df = gene_mapping_to_anchor_genes.loc[gene_list, strain_list]
     return filtered_df
+
+def count_strain_groups(strain_groups, A_binarized):
+    # Initialize an empty DataFrame with the same index as A_binarized and columns based on the keys of strain_vectors_final
+    result_df = pd.DataFrame(index=A_binarized.index, columns=strain_groups.keys())
+    
+    # Iterate over each strain group to calculate the counts
+    for group, strains in strain_groups.items():
+        # Find the intersection of strains that are both in the strain group and in A_binarized
+        common_strains = list(set(strains).intersection(A_binarized.columns))
+        
+        # Sum across these strains only if they are present (1) in A_binarized
+        result_df[group] = A_binarized[common_strains].apply(lambda row: row[row == 1].count(), axis=1)
+        
+    return result_df
+
+def genes_between_anchors(df, anchor1, anchor2):
+    result = {}
+    
+    # Iterate through each column (strain)
+    for strain, series in df.items():
+        # Parse the gene location info and filter by anchors
+        for gene, location in series.items():
+            # Check if location is not NaN and not 'NA'
+            if pd.notna(location) and location != 'NA':
+                parts = location.split('_')
+                if len(parts) == 4:
+                    start_anchor, num_genes_after, _, end_anchor = parts
+                    # Check if the gene is between the specified anchor genes
+                    if int(start_anchor) == anchor1 and int(end_anchor) == anchor2:
+                        result[gene] = int(num_genes_after)
+
+    # Create a sorted list of genes based on the number of genes after the first anchor gene
+    sorted_genes = sorted(result, key=result.get)
+    
+    return sorted_genes
+
+def genes_in_strain_between_anchors(df, strain, anchor1, anchor2):
+    if strain not in df:
+        return []  # Return an empty list if the strain name is not in the DataFrame
+
+    result = {}
+    series = df[strain]
+
+    # Parse the gene location info and filter by anchors
+    for gene, location in series.items():
+        # Check if location is not NaN and not 'NA'
+        if pd.notna(location) and location != 'NA':
+            parts = location.split('_')
+            if len(parts) == 4:
+                start_anchor, num_genes_after, _, end_anchor = parts
+                if int(start_anchor) == anchor1 and int(end_anchor) == anchor2:
+                    result[gene] = int(num_genes_after)
+
+    # Create a sorted list of genes based on the number of genes after the first anchor gene
+    sorted_genes = sorted(result, key=result.get)
+    
+    return sorted_genes
+
+def count_anchor_gene_pairs(phylon_location):
+    # Initialize a dictionary to store the counts for each gene
+    gene_pair_counts = {}
+
+    # Iterate over each row (gene) in the DataFrame
+    for gene in phylon_location.index:
+        # Initialize a set to store unique anchor gene pairs
+        anchor_pairs = set()
+
+        # Iterate over each strain (column) to extract the anchor genes
+        for strain in phylon_location.columns:
+            value = phylon_location.loc[gene, strain]
+            if pd.isna(value) or value == 'NA':
+                continue  # Skip NaN and 'NA' values
+
+            # Split the value to extract anchor genes
+            anchor_1, _, _, anchor_2 = map(int, value.split('_'))
+
+            # Add both possible anchor gene pairs to the set (order doesn't matter)
+            anchor_pairs.add((min(anchor_1, anchor_2), max(anchor_1, anchor_2)))
+
+        # Count the number of unique pairs for this gene
+        gene_pair_counts[gene] = len(anchor_pairs)
+
+    # Create a new DataFrame with the counts
+    count_df = pd.DataFrame.from_dict(gene_pair_counts, orient='index', columns=['Number of possible location'])
+
+    # Remove rows with 0 possibilities
+    count_df = count_df[count_df['Number of possible location'] > 0]
+
+    return count_df.sort_values(by='Number of possible location', ascending=False)
