@@ -786,3 +786,28 @@ def count_anchor_gene_pairs(phylon_location):
     count_df = count_df[count_df['Number of possible location'] > 0]
 
     return count_df.sort_values(by='Number of possible location', ascending=False)
+
+def unique_genes_by_phylon(df: pd.DataFrame) -> dict:
+    '''
+    This function identifies unique genes for each phylon in a L_binarized.
+
+    Parameters:
+    df (pd.DataFrame, L_binarized): A dataframe where columns are phylon names, 
+                       row indices are gene names, 
+                       and values are 1 or 0 indicating the presence of the gene in the phylon.
+
+    Returns:
+    dict: A dictionary where keys are phylon names and values are lists of genes 
+          that are unique to each phylon.
+    '''
+    unique_genes = {}
+
+    # Iterate through each phylon (column)
+    for phylon in df.columns:
+        # Get genes present in the current phylon
+        genes_in_phylon = df.index[df[phylon] == 1].tolist()
+
+        # Find unique genes by ensuring they are not present in any other phylon
+        unique_genes[phylon] = [gene for gene in genes_in_phylon if df.loc[gene].sum() == 1]
+
+    return unique_genes
