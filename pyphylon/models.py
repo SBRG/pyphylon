@@ -798,7 +798,7 @@ def _calculate_nmf_reconstruction(data, L_binarized, A_binarized):
     
     return P_reconstructed, P_error, P_confusion
 
-def _calculate_metrics(P_confusion):
+def _calculate_metrics(P_confusion, P_reconstructed, rank):
     
     # Unpack confusion matrix elements
     TP = P_confusion[0, 0]
@@ -837,7 +837,7 @@ def _calculate_metrics(P_confusion):
 
     # Calculate Akaike Information Criterion (AIC)
     Reconstruction_error = 1 - Jaccard_index # Jaccard distance (proxy for reconstr error)
-    k = 2 * n_components * (data_shape[0] + data_shape[1])  # num of params in NMF (W and H matrices)
+    k = 2 * rank * (P_reconstructed[0] + P_reconstructed[1])  # number of parameters in NMF (W & H matrices)
     AIC = 2 * k + 2 * Reconstruction_error * Total
     
     return {
