@@ -837,7 +837,7 @@ def _calculate_metrics(P_confusion, P_reconstructed, rank):
 
     # Calculate Akaike Information Criterion (AIC)
     Reconstruction_error = 1 - Jaccard_index # Jaccard distance (proxy for reconstr error)
-    k = 2 * rank * (P_reconstructed[0] + P_reconstructed[1])  # number of parameters in NMF (W & H matrices)
+    k = 2 * rank * (P_reconstructed.shape[0] + P_reconstructed.shape[1])  # number of parameters in NMF (W & H matrices)
     AIC = 2 * k + 2 * Reconstruction_error * Total
     
     return {
