@@ -808,6 +808,7 @@ def _calculate_metrics(P_confusion):
     
     # Use float for calculations to prevent integer overflow
     TP, FN, FP, TN = map(float, [TP, FN, FP, TN])
+    Total = TP + TN + FP + FN
     
     # Calculations
     Precision = TP / (TP + FP) if TP + FP != 0 else 0
@@ -816,22 +817,28 @@ def _calculate_metrics(P_confusion):
     FPR = FP / (FP + TN) if FP + TN != 0 else 0
     FNR = FN / (TP + FN) if TP + FN != 0 else 0
     Specificity = TN / (TN + FP) if TN + FP != 0 else 0
-    Prevalence = (TP + FN) / (TP + TN + FP + FN)
-    Accuracy = (TP + TN) / (TP + TN + FP + FN)
+    Prevalence = (TP + FN) / Total
+    Accuracy = (TP + TN) / Total
     F1_score = 2 * (Precision * Recall) / (P_plus_R) if P_plus_R != 0 else 0
-    BM = Recall + Specificity - 1
+    BM = Recall + Specificity - 1 # a.k.a Youden's J statistic
+    Jaccard_index = TP / (TP + FP + FN) if TP + FP + FN != 0 else 0
 
     # Adjusted MCC calculation to avoid overflow
     numerator = TP * TN - FP * FN
     denominator = np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
     MCC = numerator / denominator if denominator != 0 else 0
 
-    Jaccard_index = TP / (TP + FP + FN) if TP + FP + FN != 0 else 0
+    # Adjusted Prevalence Threshold to avoid overflow
     one_minus_Sp = 1 - Specificity
     if BM != 0:
         PT = (np.sqrt(Recall * one_minus_Sp) + Specificity - 1) / (BM)
     else:
         PT = 0
+
+    # Calculate Akaike Information Criterion (AIC)
+    Reconstruction_error = 1 - Jaccard_index # Jaccard distance (proxy for reconstr error)
+    k = 2 * n_components * (data_shape[0] + data_shape[1])  # num of params in NMF (W and H matrices)
+    AIC = 2 * k + 2 * Reconstruction_error * Total
     
     return {
         'Precision': Precision,
@@ -845,7 +852,8 @@ def _calculate_metrics(P_confusion):
         'BM': BM,
         'Prevalence Threshold': PT,
         'MCC': MCC,
-        'Jaccard Index': Jaccard_index
+        'Jaccard Index': Jaccard_index,
+        'AIC': AIC
     }
 
 def _check_n_neighbors(data, n_neighbors):
