@@ -811,3 +811,4 @@ def unique_genes_by_phylon(df: pd.DataFrame) -> dict:
         unique_genes[phylon] = [gene for gene in genes_in_phylon if df.loc[gene].sum() == 1]
 
     return unique_genes
+
