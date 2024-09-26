@@ -2,6 +2,7 @@
 Functions for handling dimension-reduction models of pangenome data.
 """
 
+import logging
 from pyexpat import model
 import numpy as np
 import pandas as pd
@@ -98,10 +99,16 @@ def normalize_nmf_outputs(data: pd.DataFrame,
     """
     L_norm_dict, A_norm_dict = {}, {}
     for rank, W in tqdm(W_dict.items(), desc='Normalizing matrices...'):
-        H = H_dict[rank]
-        D1, D2 = _get_normalization_diagonals(pd.DataFrame(W))
-        L_norm_dict[rank] = pd.DataFrame(np.dot(W, D1), index=data.index)
-        A_norm_dict[rank] = pd.DataFrame(np.dot(D2, H), columns=data.columns)
+        try:
+            H = H_dict[rank]
+            D1, D2 = _get_normalization_diagonals(pd.DataFrame(W))
+            L_norm_dict[rank] = pd.DataFrame(np.dot(W, D1), index=data.index)
+            A_norm_dict[rank] = pd.DataFrame(np.dot(D2, H), columns=data.columns)
+        except KeyError:
+            logging.warning(f"Rank {rank} not found in H_dict. Skipping...") # TODO: update to long-form logging
+        except ValueError as e:
+            logging.error(f"Error normalizing matrices for rank {rank}: {str(e)}") # TODO: update to long-form logging
+            raise
     return L_norm_dict, A_norm_dict
 
 def binarize_nmf_outputs(L_norm_dict, A_norm_dict):
