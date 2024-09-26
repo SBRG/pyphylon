@@ -5,7 +5,7 @@ Functions for handling dimension-reduction models of pangenome data.
 from pyexpat import model
 import numpy as np
 import pandas as pd
-from typing import Iterable
+from typing import Iterable, Union, List
 from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
 from sklearn.cluster import KMeans
@@ -42,7 +42,7 @@ def run_mca(data):
     return mca.fit(data)
 
 # Non-negative Matrix Factorization (NMF)
-def run_nmf(data, ranks, max_iter=10_000):
+def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: int = 10_000):
     """
     Run NMF multiple times and possibly across multiple ranks.
 
@@ -71,7 +71,9 @@ def run_nmf(data, ranks, max_iter=10_000):
 
     return W_dict, H_dict
 
-def normalize_nmf_outputs(data, W_dict, H_dict):
+def normalize_nmf_outputs(data: pd.DataFrame, 
+                          W_dict: Dict[int, np.ndarray], 
+                          H_dict: Dict[int, np.ndarray]) -> Tuple[Dict[int, pd.DataFrame], Dict[int, pd.DataFrame]]:
     """
     Normalize NMF outputs (99th percentile of W, column-by-column).
 
