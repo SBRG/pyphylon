@@ -6,7 +6,7 @@ import logging
 from pyexpat import model
 import numpy as np
 import pandas as pd
-from typing import Iterable, Union, List, Tuple, Dict, Any
+from typing import Iterable, Union, List, Tuple, Dict, Any, Optional
 from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
 from sklearn.cluster import KMeans
@@ -16,6 +16,10 @@ from umap import UMAP
 from hdbscan import HDBSCAN
 
 from pyphylon.util import _get_normalization_diagonals
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 ################################
 #           Functions          #
@@ -45,7 +49,23 @@ def run_mca(data):
 # Non-negative Matrix Factorization (NMF)
 def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: int = 10_000):
     """
-    Run NMF multiple times and possibly across multiple ranks.
+    Run NMF on the input data across multiple ranks.
+    NMF decomposes a non-negative matrix D into two non-negative matrices W and H:
+    D ≈ W * H
+
+    Where:
+    - D is the input data matrix (n_samples, n_features)
+    - W is the basis matrix (n_samples, n_components)
+    - H is the coefficient matrix (n_components, n_features)
+
+    The optimization problem solved is:
+    min_{W,H} 0.5 * ||V - WH||_Fro^2
+    subject to W,H >= 0
+
+    Non-negative Double Singlular Value Decomposition (NNDSVD) is used
+    for the intialization of the optimization problem. This is done to
+    ensure the basis matrix (and correspondingly the coefficient matrix)
+    is as sparse as possible.
 
     Parameters:
     - data: DataFrame containing the dataset to be analyzed.
@@ -55,6 +75,17 @@ def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: i
     Returns:
     - W_dict: A dictionary of transformed data at various ranks.
     - H_dict: A dictionary of model components at various ranks.
+
+    Notes:
+    ------
+    This function uses the 'nndsvd' initialization, which is based on two SVD processes,
+    one approximating the data matrix, the other approximating positive sections of 
+    the resulting partial SVD factors.
+
+    References:
+    -----------
+    Boutsidis, C., & Gallopoulos, E. (2008). SVD based initialization: A head start 
+    for nonnegative matrix factorization. Pattern Recognition, 41(4), 1350-1362.
     """
     # Data validation
     if data.ndim != 2:
@@ -68,6 +99,7 @@ def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: i
     W_dict, H_dict = {}, {}
 
     # Run NMF at varying ranks
+    logger.info(f"Starting NMF process for {len(ranks)} ranks")
     for rank in tqdm(ranks, desc='Running NMF at varying ranks...'):
         model = NMF(
             n_components=rank,
@@ -75,11 +107,14 @@ def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: i
             max_iter=max_iter,
             random_state=42
         )
+
+        logger.debug(f"Fitting NMF model for rank {rank}")
         W = model.fit_transform(data)
         H = model.components_
         W_dict[rank] = W
         H_dict[rank] = H
 
+    logger.info("NMF process completed for given ranks")
     return W_dict, H_dict
 
 def normalize_nmf_outputs(data: pd.DataFrame, 
@@ -549,19 +584,55 @@ class NmfModel(object):
 # Container for PVGE models for easy loading into NmfData
 class PVGE(object):
     """
-    Class representation of PVGE models and their metrics.
+    Polytope Vertex Group Extraction (PVGE) for clustering high-dimensional data.
 
-    Polytope Vertex-Group Extraction (PVGE) is a technique
-    meant for extracting characteristic clusters from a
-    polytopic dataset. It is meant for binary datasets which
-    inherently generate data that lies on the vertex of a
-    hypercube. DensMAP is first run to identify vertex-group
-    clusters, which are then extracted with HDBSCAN. For
-    pangenomic data (e.g. P matrix), this approach yields
-    clusters with high concordance with Mash clusters and
-    known MLST values, showcasing the clustering does indeed
-    capture an underlying biological reality. These clusters
-    also match up well with NMF-derived phylons
+    PVGE combines dimensionality reduction using DensMAP (a density-preserving variant
+    of UMAP) with density-based clustering using HDBSCAN. This approach is particularly
+    useful for identifying clusters in complex, high-dimensional genomic data.
+
+    The process involves two main steps:
+    1. Dimensionality Reduction: Using DensMAP to project the data into a lower-dimensional space
+       while preserving both local and global structure.
+    2. Clustering: Applying HDBSCAN to the reduced-dimensional data to identify clusters.
+
+    Attributes:
+    -----------
+    data : pd.DataFrame
+        The input high-dimensional data.
+    densmap : UMAP
+        The fitted DensMAP model.
+    embedding : np.ndarray
+        The low-dimensional embedding produced by DensMAP.
+    hdbscan : HDBSCAN
+        The fitted HDBSCAN model.
+    labels : np.ndarray
+        Cluster labels assigned by HDBSCAN.
+
+    Methods:
+    --------
+    run_densmap()
+        Perform DensMAP dimensionality reduction.
+    run_hdbscan()
+        Perform HDBSCAN clustering on the DensMAP embedding.
+
+    Notes:
+    ------
+    DensMAP extends UMAP by incorporating density preservation into the optimization
+    objective. This helps in maintaining the global density structure of the data
+    in the low-dimensional embedding.
+
+    HDBSCAN is a density-based clustering algorithm that extends DBSCAN by extracting
+    a flat clustering based on the stability of clusters.
+
+    References:
+    -----------
+    1. McInnes, L., Healy, J., & Melville, J. (2018). UMAP: Uniform Manifold Approximation
+       and Projection for Dimension Reduction. ArXiv e-prints.
+    2. Narayan, A., Berger, B., & Cho, H. (2021). Density-Preserving Data Visualization
+       Unveils Dynamic Patterns of Single-Cell Transcriptomic Variability. Nature Biotechnology, 39, 765-774.
+    3. Campello, R. J., Moulavi, D., & Sander, J. (2013). Density-based clustering based on
+       hierarchical density estimates. In Pacific-Asia conference on knowledge discovery
+       and data mining (pp. 160-172). Springer, Berlin, Heidelberg.
     """
     def __init__(
             self,
@@ -685,6 +756,7 @@ class PVGE(object):
     
     # Class methods
     def run_densmap(self, low_memory: bool = False):
+        logger.debug(f"Running DensMAP with n_neighbors={self._n_neighbors}")
         if low_memory:
             self._low_memory = low_memory
         
@@ -702,6 +774,8 @@ class PVGE(object):
         if core_dist_n_jobs:
             self._core_dist_n_jobs = core_dist_n_jobs
         
+        logger.debug(f"Running HDBSCAN with max_range={self._max_range}, "
+                     f"core_dist_n_jobs={self._core_dist_n_jobs}")
         best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(
             self.embedding,
             self._max_range,
