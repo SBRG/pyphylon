@@ -6,7 +6,7 @@ import logging
 from pyexpat import model
 import numpy as np
 import pandas as pd
-from typing import Iterable, Union, List, Tuple, Dict
+from typing import Iterable, Union, List, Tuple, Dict, Any
 from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
 from sklearn.cluster import KMeans
@@ -195,6 +195,13 @@ def run_densmap(
     else:
         n_neighbors = 0.01 * min(data.shape)
     
+    if len(embedding) == 0:
+        raise ValueError("Empty embedding array provided")
+
+    if len(embedding) == 1:
+        logging.warning("Only one point provided. Returning single-cluster result.")
+        return HDBSCAN(), np.array([0]), 1.0, pd.DataFrame()
+    
     densmap = UMAP(
         n_components=3,
         n_neighbors=n_neighbors,
@@ -209,10 +216,10 @@ def run_densmap(
     return densmap, embedding
 
 def run_hdbscan(
-        embedding: pd.DataFrame,
-        max_range: int = None,
+        embedding: np.ndarray, 
+        max_range: Optional[int] = None, 
         core_dist_n_jobs: int = 8
-):
+        ) -> Tuple[Any, np.ndarray, float, pd.DataFrame]:
     """
     Run HDBSCAN across various cluster sizes and sample sizes.
 
@@ -315,6 +322,13 @@ class NmfModel(object):
         - ranks: Iterable of ranks on which to perform NMF
         - max_iter: Integer, Max num of iters for convergence, default 10_000
         """
+        # Check for NaN or infinite values in NMF input
+        if data.isna().any().any() or np.isinf(data).any().any():
+            raise ValueError("Input data contains NaN or infinite values")
+        
+        # Check for negative values in NMF input
+        if (data < 0).any().any():
+            raise ValueError("Input data contains negative values, which are not allowed in NMF")
 
         self._data = data
         self._ranks = ranks
