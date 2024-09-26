@@ -5,7 +5,7 @@ Functions for handling dimension-reduction models of pangenome data.
 from pyexpat import model
 import numpy as np
 import pandas as pd
-from typing import Iterable, Union, List
+from typing import Iterable, Union, List, Tuple, Dict
 from tqdm.notebook import tqdm, trange
 from sklearn.decomposition import NMF
 from sklearn.cluster import KMeans
@@ -55,8 +55,18 @@ def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: i
     - W_dict: A dictionary of transformed data at various ranks.
     - H_dict: A dictionary of model components at various ranks.
     """
+    # Data validation
+    if data.ndim != 2:
+        raise ValueError("data must be a 2-dimensional array")
+    if not all(r > 0 for r in ranks):
+        raise ValueError("ranks must be a list of positive integers")
+    if max_iter <= 0:
+        raise ValueError("max_iter must be a positive integer")
+
+    # Initialize outputs
     W_dict, H_dict = {}, {}
 
+    # Run NMF at varying ranks
     for rank in tqdm(ranks, desc='Running NMF at varying ranks...'):
         model = NMF(
             n_components=rank,
