@@ -59,7 +59,7 @@ def run_nmf(data: Union[np.ndarray, pd.DataFrame], ranks: List[int], max_iter: i
     - H is the coefficient matrix (n_components, n_features)
 
     The optimization problem solved is:
-    min_{W,H} 0.5 * ||V - WH||_Fro^2
+    min_{W,H} 0.5 * ||D - WH||_Fro^2
     subject to W,H >= 0
 
     Non-negative Double Singlular Value Decomposition (NNDSVD) is used
