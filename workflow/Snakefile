@@ -1,0 +1,75 @@
+
+
+# This snakefile will :
+# 1. annotate all genomes in the data/raw/fna folder using BAKTA
+# 2. Run mash on all genomes 
+# 3. Build a pan-genome using CD-HIT
+
+
+SAMPLES, = glob_wildcards('raw/genomes/fna/{sample}.fna')
+
+rule all:
+    input:
+        expand("processed/bakta/{sample}/{sample}.gbff", sample=SAMPLES), # for BATKA annotation
+        'raw/mash_genomes/combined_sketch.msh',
+        'raw/mash_genomes/mash_distances.txt',
+        'processed/cd-hit-results/pan_genome'
+
+
+
+rule batka_annotation: # https://github.com/oschwengers/bakta
+    input:
+        "raw/genomes/fna/{sample}.fna",
+        directory("db-light")
+    output:
+        "processed/bakta/annotation/{sample}/{sample}.fna",
+        "processed/bakta/{sample}/{sample}.gbff",
+        "processed/bakta/{sample}/{sample}.faa",
+        "processed/bakta/{sample}/{sample}.tsv",
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    threads: 8
+    shell:
+        "bakta --db db-light --output annotation/{wildcards.sample} --locus-tag {wildcards.sample} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
+
+rule get_db:
+    output:
+        directory("db-light")
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    shell:
+        'wget https://zenodo.org/record/10522951/files/db-light.tar.gz && tar -xzf db-light.tar.gz && rm db-light.tar.gz && amrfinder_update --force_update --database /data/db-light/amrfinderplus-db' #TODO rename dB and add as config var
+
+        # 
+
+rule mash:
+    input:
+        expand("raw/genomes/fna/{sample}.fna", sample=SAMPLES)
+    output:
+        mash_sketch = "raw/mash_genomes/combined_sketch.msh",
+        mash_distances = "raw/mash_genomes/mash_distances.txt"
+
+    container:
+        'docker://staphb/mashtree@sha256:731bbb7479f2210618425840f97f7f805078b2414bfc49ea59d9e27c3c0db326'
+    shell:
+        "mash sketch -o {output.mash_sketch} {input} && mash dist {output.mash_sketch} {output.mash_sketch} > {output.mash_distances}"
+
+rule concat_faas:
+    input:
+        expand("processed/bakta/{sample}/{sample}.faa", sample=SAMPLES)
+    output:
+        "raw/pan_genome.faa"
+    shell:
+        "cat {input} > {output}"
+
+rule cdhit:
+    input:
+        "raw/pan_genome.faa"
+    output:
+        "processed/cd-hit-results/pan_genome"
+    container:
+        'docker://biocontainers/cd-hit@sha256:e4a7cf8813264803b1229b2dd2aaa396a6020798bc64595d2b880a5aad01d927'
+    threads:
+        8
+    shell:
+        'cdhit -i {input} -o {output} -d 0 -n 5 -c 0.8 -M 0 -T {threads}'
