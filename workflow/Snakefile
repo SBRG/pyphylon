@@ -6,14 +6,18 @@
 # 3. Build a pan-genome using CD-HIT
 
 
-SAMPLES, = glob_wildcards('raw/genomes/fna/{sample}.fna')
+# SAMPLES, = glob_wildcards('raw/genomes/fna/{sample}.fna')
+import pandas as pd
+genomes = pd.read_csv('../data/interim/genome_summary_2a.csv', dtype={"genome_id":str})
+SAMPLES = genomes['genome_id'].tolist()
 
 rule all:
     input:
         expand("processed/bakta/{sample}/{sample}.gbff", sample=SAMPLES), # for BATKA annotation
         'raw/mash_genomes/combined_sketch.msh',
         'raw/mash_genomes/mash_distances.txt',
-        'processed/cd-hit-results/pan_genome'
+        'processed/cd-hit-results/pan_genome',
+        'processed/mlst_report.txt'
 
 
 
@@ -22,7 +26,7 @@ rule batka_annotation: # https://github.com/oschwengers/bakta
         "raw/genomes/fna/{sample}.fna",
         directory("db-light")
     output:
-        "processed/bakta/annotation/{sample}/{sample}.fna",
+        "processed/bakta/{sample}/{sample}.fna",
         "processed/bakta/{sample}/{sample}.gbff",
         "processed/bakta/{sample}/{sample}.faa",
         "processed/bakta/{sample}/{sample}.tsv",
@@ -30,7 +34,7 @@ rule batka_annotation: # https://github.com/oschwengers/bakta
         'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
     threads: 8
     shell:
-        "bakta --db db-light --output annotation/{wildcards.sample} --locus-tag {wildcards.sample} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
+        "bakta --db db-light --output processed/bakta/{wildcards.sample} --locus-tag {wildcards.sample} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
 
 rule get_db:
     output:
@@ -72,4 +76,22 @@ rule cdhit:
     threads:
         8
     shell:
-        'cdhit -i {input} -o {output} -d 0 -n 5 -c 0.8 -M 0 -T {threads}'
+        'cdhit -i {input} -o {output} -d 0 -n 5 -c 0.8 -M 0 -aL 0.8 -T {threads}'
+
+rule mlst:
+    input:
+        "raw/genomes/fna/{sample}.fna"
+    output:
+        "processed/mlst/{sample}.tsv"
+    container:
+        'docker://staphb/mlst@sha256:f1d99e11847bf58c7a895b1047704ebbafd16e1273d7ce7fffe1450ccf2b6d1b'
+    shell:
+        'mlst {input} > {output}'
+
+rule mlst_report:
+	input:
+		files=expand("processed/mlst/{sample}.tsv", sample=SAMPLES)
+	output:
+		"processed/mlst_report.txt"
+	shell:
+		"cat {input.files} > {output}"
