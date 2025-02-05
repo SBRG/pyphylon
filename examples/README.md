@@ -2,13 +2,17 @@
 
 # Instructions for Running the Example (S. pyogenes)
 
-There are two options for running the example:
+## There are two options for running the example:
 1. Run all bioinformatics yourself using the attached Snakemake Workflows (in folder workflow)
     * Download <a href="https://www.dropbox.com/s/ksvdgi8xgfx5m2r/spyogenes_metadata_summary.tar?dl=0">metadata</a>
     * Untar these two files into a data/metadata directory in the "examples" folder
-1. Download the result of all bioinformatics scripts from XX and copy to the "data" folder
+1. Download the result of all bioinformatics scripts, copy and extract to the "data" folder
     * Download <a href="https://www.dropbox.com/s/5clg2tq6w4u67u7/SPyogenes_example.tar?dl=0">all</a>
     * Unzip all files into the data directory in the "examples" folder
+
+## Running the Example (once you've downloaded and extracted one of the two files above)
+#### Note if you select option 2 above you can skip steps 3 and 5 below
+
 1. Run notebook 1a. This will prepare genomes for download from BV-BRC
     * Output is: interim/genome_summary_1a.csv and interim/genome_metadata_1a.csv
 1. Run notebook 1b - this will download the filtered genomes from BV-BRC (note you can skip running this notebook if you downloaded the data file)
