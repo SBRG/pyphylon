@@ -37,12 +37,7 @@ pip install -e .
 
 ## Usage
 
-Provide a quick start example of how to use the tool:
-
-```python
-# Example Python code that demonstrates how to use the tool
-
-```
+We recommend working through the <a href="https://github.com/SBRG/pyphylon/blob/streamline-configs/examples/README.md">example</a>
 
 ## Running Docker:
 1. Build the container with: `docker build -t pyphylon .`
