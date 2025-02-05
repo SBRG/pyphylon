@@ -30,6 +30,11 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Install pyphylon
+```
+pip install -e .
+```
+
 ## Usage
 
 Provide a quick start example of how to use the tool:
