@@ -160,5 +160,6 @@ cython_debug/
 #.idea/
 
 examples/data/*
+deprecated/*
 
 workflow/.snakemake/*

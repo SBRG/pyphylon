@@ -1,0 +1,9 @@
+
+WORKDIR: "data/"
+SPECIES_NAME: "Streptococcus pyogenes"
+DEBUG: True
+PG_NAME: "SPyogenes"
+
+METADATA_FILE: "/examples/data/metadata/spyogenes_metadata_summary.tsv"
+GENOMES_FILE: "/examples/data/metadata/spyogenes_genome_summary.tsv"
+FILTERED_GENOMES_FILE: "/examples/data/interim/mash_scrubbed_species_metadata_2b.csv"
