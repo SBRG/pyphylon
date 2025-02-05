@@ -1,0 +1,22 @@
+
+
+# This snakefile will Run mash on all genomes 
+SAMPLES, = glob_wildcards('raw/genomes/fna/{sample}.fna')
+
+rule all:
+    input:
+        'processed/mash/combined_sketch.msh',
+        'processed/mash/mash_distances.txt',
+
+
+rule mash:
+    input:
+        expand("raw/genomes/fna/{sample}.fna", sample=SAMPLES)
+    output:
+        mash_sketch = "processed/mash/combined_sketch.msh",
+        mash_distances = "processed/mash/mash_distances.txt"
+
+    container:
+        'docker://staphb/mashtree@sha256:731bbb7479f2210618425840f97f7f805078b2414bfc49ea59d9e27c3c0db326'
+    shell:
+        "mash sketch -o {output.mash_sketch} {input} && mash dist {output.mash_sketch} {output.mash_sketch} > {output.mash_distances}"
