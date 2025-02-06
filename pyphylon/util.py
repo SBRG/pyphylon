@@ -9,6 +9,13 @@ from tqdm.notebook import trange
 
 # Files and folders #
 
+def load_config(config_file):
+    # Load configuration file
+    import yaml
+    with open(config_file, 'r') as stream:
+        CONFIG = yaml.safe_load(stream)
+    return CONFIG
+
 def remove_empty_files(directory):
     # Initialize list of empty files
     empty_files = []

@@ -30,13 +30,20 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
+Install pyphylon
+```
+pip install -e .
+```
+
 ## Usage
 
-Provide a quick start example of how to use the tool:
+We recommend working through the <a href="https://github.com/SBRG/pyphylon/blob/streamline-configs/examples/README.md">example</a>
 
-```python
-# Example Python code that demonstrates how to use the tool
-```
+## Running Docker:
+1. Build the container with: `docker build -t pyphylon .`
+2. Run the container interactively with: `docker run --privileged -it -v %cd%/examples/data:/data -v %cd%/workflow:/workflow pyphylon`
+3. from INSIDE the container cd to /workflow (`cd workflow`)
+4. Run snakemake with: `snakemake -d /data --use-singularity -c 5`
 
 ## Contributing
 

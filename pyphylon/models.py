@@ -188,6 +188,7 @@ def generate_nmf_reconstructions(data, L_binarized_dict, A_binarized_dict):
     
     return P_reconstructed_dict, P_error_dict, P_confusion_dict
 
+# Calculate model reconstruction metrics
 def calculate_nmf_reconstruction_metrics(
         P_reconstructed_dict,
         P_confusion_dict
@@ -198,7 +199,7 @@ def calculate_nmf_reconstruction_metrics(
     df_metrics = pd.DataFrame()
 
     for rank in tqdm(P_reconstructed_dict, desc='Tabulating metrics...'):
-        df_metrics[rank] = _calculate_metrics(P_confusion_dict[rank])
+        df_metrics[rank] = _calculate_metrics(P_confusion_dict[rank], P_reconstructed_dict[rank], rank)
     
     df_metrics = df_metrics.T
     df_metrics.index.name = 'rank'
@@ -973,3 +974,24 @@ def _check_n_neighbors(data, n_neighbors):
         )
     
     return n_neighbors
+
+def recommended_threshold(A_norm, i):
+    column_data_reshaped = A_norm.loc[f'phylon{i}'].values.reshape(-1, 1)
+    
+    # 3-means clustering
+    kmeans = KMeans(n_clusters=3, random_state=0, n_init='auto')
+    kmeans.fit(column_data_reshaped)
+    labels = kmeans.labels_
+    centers = kmeans.cluster_centers_
+    
+    # Find the cluster with the highest mean
+    highest_mean_cluster = np.argmax(centers)
+    
+    # Binarize the row based on the cluster with the highest mean
+    binarized_row = (labels == highest_mean_cluster).astype(int)
+    
+    # Find k-means-recommended threshold using min value that still binarizes to 1
+    x = pd.Series(dict(zip(A_norm.columns, binarized_row)))
+    threshold = A_norm.loc[f'phylon{i}', x[x==1].index].min()
+    
+    return threshold
