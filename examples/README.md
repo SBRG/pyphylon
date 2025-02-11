@@ -19,7 +19,8 @@
     * Output is data/interim/genome_summary_1b.csv and data/interim/genome_metadata_1b.csv
 1. Now run mash workflow to filter out any genomes that aren't in the species:
       1. Build the container with: `docker build -t pyphylon .`
-      1. Run the container interactively with: `docker run --privileged -it -v %cd%/examples/data:/data -v %cd%/workflow:/workflow pyphylon`
+      1. Run the container interactively with: `docker run --privileged -it -v %cd%/examples:/examples -v %cd%/workflow:/workflow pyphylon`
+             - Command for WSL2: docker run --privileged -it -v $(pwd)/examples/data:/data -v $(pwd)/workflow:/workflow pyphylon
       1. from INSIDE the container cd to /workflow (`cd workflow`)
       1. for the MASH workflow cd to the "mash" folder: `cd mash`
       1. Run snakemake with: `snakemake -d /examples/data --use-singularity -c 10` 
