@@ -5,7 +5,12 @@ General utility functions for the pyphylon package.
 import os
 import numpy as np
 import pandas as pd
+
+from scipy.optimize import nnls
+from joblib import Parallel, delayed
 from tqdm.notebook import trange
+
+from pyphylon.core import NmfData
 
 # Files and folders #
 
@@ -77,7 +82,92 @@ def _convert_sparse(df: pd.DataFrame, dtype='int8'):
     
     return df
 
-# NMF normalization #
+# NMF utils #
+
+# TODO: change this function to require only the following inputs: nmf_data and new_data
+def infer_affinities(L: np.ndarray, P_new: np.ndarray, n_jobs: int = -1) -> np.ndarray:
+    """
+    Infer affinities for new genomes by solving a non-negative least squares problem in parallel.
+    
+    Given a binary gene presence/absence matrix P_new (with genes as rows and genomes as columns)
+    and a precomputed basis matrix L (with genes as rows and phylons as columns), this function
+    computes A_new (with phylons as rows and genomes as columns) such that:
+    
+        P_new ≈ L @ A_new
+        
+    For each genome (column in P_new), the following NNLS problem is solved:
+    
+        a_new = argmin_{a >= 0} || L @ a - p ||²
+        
+    Parallelization is used to speed up computations across multiple CPU cores.
+    
+    Parameters
+    ----------
+    L : np.ndarray
+        A 2D numpy array of shape (n_genes, n_phylons) representing the basis (or "phylon" signatures)
+        derived from non-negative matrix factorization.
+    P_new : np.ndarray
+        A 2D numpy array of shape (n_genes, n_genomes) representing the new binary gene 
+        presence/absence data.
+    n_jobs : int, optional
+        The number of jobs to run in parallel. Defaults to -1, which uses all available cores.
+        
+    Returns
+    -------
+    A_new : np.ndarray
+        A 2D numpy array of shape (n_phylons, n_genomes) representing the inferred affinities (or 
+        activity levels) for the new genomes.
+    
+    Notes
+    -----
+    This function solves an independent non-negative least squares (NNLS) problem for each genome
+    to ensure that the resulting affinities are non-negative, preserving the NMF constraints.
+    The computation is parallelized across genomes to accelerate processing.
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> L = np.array([[0.5, 0.3], [0.2, 0.7]])
+    >>> P_new = np.array([[1, 0], [0, 1]])
+    >>> A_new = infer_affinities(L, P_new, n_jobs=2)
+    >>> print(A_new)
+    [[1. 0.]
+     [0. 1.]]
+    """
+    # Get dimensions and validate that the gene counts match.
+    n_genes, n_phylons = L.shape
+    if P_new.shape[0] != n_genes:
+        raise ValueError("The number of rows (genes) in P_new must match the number in L.")
+    
+    n_genomes = P_new.shape[1]
+    
+    def solve_nnls(i: int) -> np.ndarray:
+        """
+        Solve the NNLS problem for the i-th genome.
+        
+        Parameters
+        ----------
+        i : int
+            Index of the genome (column in P_new) for which to solve the NNLS.
+            
+        Returns
+        -------
+        a : np.ndarray
+            The inferred affinity vector for the i-th genome.
+        """
+        p = P_new[:, i]
+        a, _ = nnls(L, p)
+        return a
+    
+    # Compute NNLS for each genome in parallel.
+    results = Parallel(n_jobs=n_jobs)(
+        delayed(solve_nnls)(i) for i in range(n_genomes)
+    )
+    
+    # Stack the results (each is a vector of length n_phylons) into a matrix.
+    A_new = np.column_stack(results)
+    
+    return A_new
 
 def _get_normalization_diagonals(W):
     # Generate normalization diagonal matrices
