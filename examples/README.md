@@ -7,7 +7,7 @@
     * Download <a href="https://www.dropbox.com/s/ksvdgi8xgfx5m2r/spyogenes_metadata_summary.tar?dl=0">metadata</a>
     * Untar these two files into a data/metadata directory in the "examples" folder
 1. Download the result of all bioinformatics scripts, copy and extract to the "data" folder
-    * Download <a href="https://www.dropbox.com/s/5clg2tq6w4u67u7/SPyogenes_example.tar?dl=0">all</a>
+    * Download <a href="https://www.dropbox.com/scl/fi/fam8tnk8hhfgek3fwnn9l/SPyogenes_example_v2.tar?dl=0">all</a>
     * Unzip all files into the data directory in the "examples" folder
 
 ## Running the Example (once you've downloaded and extracted one of the two files above)
