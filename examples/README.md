@@ -7,7 +7,7 @@
     * Download <a href="https://www.dropbox.com/s/ksvdgi8xgfx5m2r/spyogenes_metadata_summary.tar?dl=0">metadata</a>
     * Untar these two files into a data/metadata directory in the "examples" folder
 1. Download the result of all bioinformatics scripts, copy and extract to the "data" folder
-    * Download <a href="https://www.dropbox.com/s/5clg2tq6w4u67u7/SPyogenes_example.tar?dl=0">all</a>
+    * Download <a href="https://www.dropbox.com/scl/fi/fam8tnk8hhfgek3fwnn9l/SPyogenes_example_v2.tar?dl=0">all</a>
     * Unzip all files into the data directory in the "examples" folder
 
 ## Running the Example (once you've downloaded and extracted one of the two files above)
@@ -18,8 +18,10 @@
 1. Run notebook 1b - this will download the filtered genomes from BV-BRC (note you can skip running this notebook if you downloaded the data file)
     * Output is data/interim/genome_summary_1b.csv and data/interim/genome_metadata_1b.csv
 1. Now run mash workflow to filter out any genomes that aren't in the species:
-      1. Build the container with: `docker build -t pyphylon .`
-      1. Run the container interactively with: `docker run --privileged -it -v %cd%/examples/data:/data -v %cd%/workflow:/workflow pyphylon`
+      1. From the main directory for this package, build the container from the Dockerfile with: `docker build -t pyphylon .`
+      1. Run the container interactively with:
+           - For windows: `docker run --privileged -it -v %cd%/examples:/examples -v %cd%/workflow:/workflow pyphylon`
+           - Command for WSL2/Linux: `docker run --privileged -it -v $(pwd)/examples:/examples -v $(pwd)/workflow:/workflow pyphylon`
       1. from INSIDE the container cd to /workflow (`cd workflow`)
       1. for the MASH workflow cd to the "mash" folder: `cd mash`
       1. Run snakemake with: `snakemake -d /examples/data --use-singularity -c 10` 
