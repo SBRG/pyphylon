@@ -1,0 +1,86 @@
+
+
+# This snakefile will :
+# 1. annotate all genomes in the data/raw/fna folder using BAKTA
+# 2. Run MLST on all genomes 
+# 3. Build a pan-genome using CD-HIT
+
+configfile: workflow.source_path("/examples/config.yml")
+PG_NAME = config['PG_NAME']
+FILTERED_GENOMES_FILE = "update_pangenome/new_genomes_metadata.csv" # metadata file for new sequences
+
+import pandas as pd
+genomes = pd.read_csv(FILTERED_GENOMES_FILE, dtype={"genome_id":str})
+SAMPLES = genomes['genome_id'].tolist()
+
+rule all:
+    input:
+        expand("update_pangenome/bakta/{sample}/{sample}.gbff", sample=SAMPLES), # for BATKA annotation
+        f"update_pangenome/cd-hit-results/{PG_NAME}",
+        'update_pangenome/mlst_report.txt',
+        f"processed/cd-hit-results/{PG_NAME}" # representative seuqences for the original pangenome
+
+
+rule batka_annotation: # https://github.com/oschwengers/bakta
+    input:
+        "update_pangenome/genomes/fna/{sample}.fna",
+        directory("db-light")
+    output:
+        "update_pangenome/bakta/{sample}/{sample}.fna",
+        "update_pangenome/bakta/{sample}/{sample}.gbff",
+        "update_pangenome/bakta/{sample}/{sample}.faa",
+        "update_pangenome/bakta/{sample}/{sample}.tsv",
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    threads: 8
+    shell:
+        "bakta --db db-light --output update_pangenome/bakta/{wildcards.sample} --locus-tag {wildcards.sample} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
+
+rule get_db:
+    output:
+        directory("db-light")
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    shell:
+        'wget https://zenodo.org/record/10522951/files/db-light.tar.gz && tar -xzf db-light.tar.gz && rm db-light.tar.gz && amrfinder_update --force_update --database db-light/amrfinderplus-db' #TODO rename dB and add as config var
+        
+rule concat_faas:
+    input:
+        expand("update_pangenome/bakta/{sample}/{sample}.faa", sample=SAMPLES)
+    output:
+        "update_pangenome/{PG_NAME}.faa"
+    shell:
+        "cat {input} > {output}"
+
+rule cdhit2d:
+    input:
+        original_pangenome = f"processed/cd-hit-results/{PG_NAME}",
+        new_sequences = f"update_pangenome/{PG_NAME}.faa"
+    output:
+        f"update_pangenome/cd-hit-results/{PG_NAME}"
+    container:
+        'docker://biocontainers/cd-hit@sha256:e4a7cf8813264803b1229b2dd2aaa396a6020798bc64595d2b880a5aad01d927'
+    threads:
+        8
+    shell:
+        'cd-hit-2d -i {input.original_pangenome} -i2 {input.new_sequences} -o {output} -d 0 -n 5 -c 0.8 -M 0 -aL 0.8 -T {threads}'
+
+rule mlst:
+    input:
+        "update_pangenome/genomes/fna/{sample}.fna"
+    output:
+        "update_pangenome/mlst/{sample}.tsv"
+    container:
+        'docker://staphb/mlst@sha256:f1d99e11847bf58c7a895b1047704ebbafd16e1273d7ce7fffe1450ccf2b6d1b'
+    threads:
+        4
+    shell:
+        'mlst {input} > {output}'
+
+rule mlst_report:
+	input:
+		files=expand("update_pangenome/mlst/{sample}.tsv", sample=SAMPLES)
+	output:
+		"update_pangenome/mlst_report.txt"
+	shell:
+		"cat {input.files} > {output}"
