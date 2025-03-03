@@ -89,7 +89,7 @@ def gff2pandas(gff_file, feature=["CDS"], index=None):
             "attributes",
         ]
         DF_gff = pd.read_csv(gff, sep="\t", skiprows=skiprow, names=names, header=None, low_memory=False)
-
+        
         region = DF_gff[DF_gff.feature == 'region']
         region_len = int(region.iloc[0].end)
 
@@ -118,7 +118,7 @@ def gff2pandas(gff_file, feature=["CDS"], index=None):
             DF_gff = DF_gff.drop_duplicates(index)
         DF_gff.set_index("locus_tag", drop=True, inplace=True)
 
-    return DF_gff[['start', 'end', 'locus_tag']], region_len, oric
+    return DF_gff[['accession', 'start', 'end', 'locus_tag']], region_len, oric
 
 def h2a(x, header_to_allele):
     """
@@ -132,7 +132,7 @@ def h2a(x, header_to_allele):
     str or None: Transformed locus tag prefixed with 'A', or None if an error occurs.
     """
     try:
-        return 'A' + header_to_allele[x].split('A')[1]
+        return header_to_allele[x].split('A')[0]
     except:
         return None
     
@@ -390,7 +390,18 @@ def create_strain_groups(strain_vectors_filtered, once_genes, starting_strain):
         group_number += 1
     
     return groups
+    
+def get_reference_order(strain_vectors, consistent_order_genes):
+    
+    # Get the reference strain's name and gene list
+    reference_strain_name = list(strain_vectors.keys())[0]
+    reference_strain_genes = strain_vectors[reference_strain_name]
 
+    # Order genes in the reference strain according to the consistent_order_genes
+    reference_ordered_genes = reorder_genes_by_strain(strain_vectors, consistent_order_genes, reference_strain_name)
+
+    return reference_ordered_genes
+    
 def update_strain_vector(reference_ordered_genes, strain_vectors_filtered):
     """
     Updates strain vectors by mapping genes to their positions in a reference ordered gene list.
