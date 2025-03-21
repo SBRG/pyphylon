@@ -1,0 +1,97 @@
+
+# This snakefile will :
+# 1. annotate all genomes in the data/raw/fna folder using BAKTA
+# 2. Run MLST on all genomes 
+# 3. Build a pan-genome using Panaroo
+
+configfile: workflow.source_path("/examples/config.yml")
+PG_NAME = config['PG_NAME']
+FILTERED_GENOMES_FILE = config['FILTERED_GENOMES_FILE']
+
+import pandas as pd
+genomes = pd.read_csv(FILTERED_GENOMES_FILE, dtype={"genome_id":str})
+SAMPLES = genomes['genome_id'].tolist()
+
+
+rule all:
+    input:
+        expand("processed/bakta/{sample}/{sample}.gbff", sample=SAMPLES), # for BATKA annotation
+        'processed/panaroo_results/' + PG_NAME,
+        'processed/mlst_report.txt'
+
+
+rule batka_annotation: # https://github.com/oschwengers/bakta
+    input:
+        "raw/genomes/fna/{sample}.fna",
+        directory("db-light")
+    output:
+        "processed/bakta/{sample}/{sample}.fna",
+        "processed/bakta/{sample}/{sample}.gbff",
+        "processed/bakta/{sample}/{sample}.faa",
+        "processed/bakta/{sample}/{sample}.tsv",
+        "processed/bakta/{sample}/{sample}.gff3",
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    threads: 8
+    shell:
+        "bakta --db db-light --output processed/bakta/{wildcards.sample} --locus-tag {wildcards.sample} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
+
+rule get_db:
+    output:
+        directory("db-light")
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    shell:
+        'wget https://zenodo.org/record/10522951/files/db-light.tar.gz && tar -xzf db-light.tar.gz && rm db-light.tar.gz && amrfinder_update --force_update --database db-light/amrfinderplus-db' #TODO rename dB and add as config var
+        
+rule mash:
+    input:
+        expand("raw/genomes/fna/{sample}.fna", sample=SAMPLES)
+    output:
+        mash_sketch = "processed/mash/combined_sketch.msh",
+        mash_distances = "processed/mash/mash_distances.txt"
+
+    container:
+        'docker://staphb/mashtree@sha256:731bbb7479f2210618425840f97f7f805078b2414bfc49ea59d9e27c3c0db326'
+    shell:
+        "mash sketch -o {output.mash_sketch} {input} && mash dist {output.mash_sketch} {output.mash_sketch} > {output.mash_distances}"
+
+rule mlst:
+    input:
+        "raw/genomes/fna/{sample}.fna"
+    output:
+        "processed/mlst/{sample}.tsv"
+    container:
+        'docker://staphb/mlst@sha256:f1d99e11847bf58c7a895b1047704ebbafd16e1273d7ce7fffe1450ccf2b6d1b'
+    threads:
+        4
+    shell:
+        'mlst {input} > {output}'
+
+rule mlst_report:
+	input:
+		files=expand("processed/mlst/{sample}.tsv", sample=SAMPLES)
+	output:
+		"processed/mlst_report.txt"
+	shell:
+		"cat {input.files} > {output}"
+
+rule combine_gffs:
+    input:
+        "processed/bakta/{sample}/{sample}.gff3"
+    output:
+        temporary("processed/gff_files/{sample}.gff3")
+    shell:
+        'cp {input} {output}'
+
+rule panaroo:
+    input:
+        files=expand("processed/gff_files/{sample}.gff3", sample=SAMPLES),
+    output:
+        directory("processed/panaroo_results/{PG_NAME}")
+    container:
+        'docker://staphb/panaroo@sha256:a324e9528b534fa4e27e4ab6cccd8ad4cd67abcdbe0cba157360e764409114c6'
+    shell:
+        'panaroo -i processed/gff_files/*.gff3 -o {output} --clean-mode sensitive -f 0.8 -a core -t 32 --remove-invalid-genes'
+
+        
