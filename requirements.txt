@@ -13,3 +13,4 @@ prince
 kneebow
 selenium
 webdriver-manager
+wordcloud
