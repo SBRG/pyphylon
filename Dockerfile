@@ -1,4 +1,4 @@
 FROM snakemake/snakemake:v7.25.0
-WORKDIR /workflows
+WORKDIR /workflow
 RUN apt update
 RUN apt install less
