@@ -3,9 +3,13 @@
 # - run MASH on sequence relative to the sketches from the pangenome
 # - run CD-HIT2D against pangenome sequences
 
-configfile: workflow.source_path("/examples/config.yml")
+configfile: workflow.source_path("/examples/config.yml")  # * NEED TO ADJUST HOW WE RUN DOCKER %cd%/examples:/examples instead of /data
+# ALSO NEED TO ADD SINGULARITY ARGS for access to mash and cdhit data
+# e.g.: snakemake -d /examples/data/inferring_affinities/ -c 5 --use-singularity -k --singularity-args "-B /examples/data/processed"
+
+
 PG_NAME = config['PG_NAME']
-FILTERED_GENOMES_FILE = config['FILTERED_GENOMES_FILE']
+FILTERED_GENOMES_FILE = config['FILTERED_GENOMES_FILE']  # where/what is this file?
 
 SAMPLES = list(glob_wildcards('/examples/data/inferring_affinities/input_strains/fna/{sample}.fna')[0])
 print("Samples to be Processed:")

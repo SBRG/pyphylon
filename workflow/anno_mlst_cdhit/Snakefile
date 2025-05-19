@@ -5,7 +5,7 @@
 # 2. Run MLST on all genomes 
 # 3. Build a pan-genome using CD-HIT
 
-configfile: workflow.source_path("/examples/config.yml")
+configfile: workflow.source_path("../examples/config.yml")
 PG_NAME = config['PG_NAME']
 FILTERED_GENOMES_FILE = config['FILTERED_GENOMES_FILE']
 
