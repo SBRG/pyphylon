@@ -13,4 +13,5 @@ prince
 kneebow
 selenium
 webdriver-manager
-yaml
+pyyaml
+ipywidgets

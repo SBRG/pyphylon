@@ -231,10 +231,10 @@ def run_densmap(
     else:
         n_neighbors = 0.01 * min(data.shape)
     
-    if len(embedding) == 0:
-        raise ValueError("Empty embedding array provided")
+    if len(data) == 0:
+        raise ValueError("Empty data array provided")
 
-    if len(embedding) == 1:
+    if len(data) == 1:
         logging.warning("Only one point provided. Returning single-cluster result.")
         return HDBSCAN(), np.array([0]), 1.0, pd.DataFrame()
     
