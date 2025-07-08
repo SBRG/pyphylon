@@ -9,13 +9,6 @@ def test_mca() -> None:
     mca_results = run_mca
     # add any assert statements of interest here
 
-## TODO need to fix issues with densmap function first, appears to have problems with umap-learn and numba
-# def test_densmap() -> None:
-#     df = pd.DataFrame(np.random.rand(2000,200))
-#     densmap, embedding = run_densmap(df)
-#     # add any assert statements of interest here
-
-
 def test_nmf() -> None:
     df = pd.DataFrame(np.random.randint(0,2,size=(20,5)))
     nmf_w, nmf_h = run_nmf(df, ranks = range(1, min(df.shape) + 1))
@@ -43,5 +36,6 @@ def test_reconstruction_and_metrics() -> None:
 
     assert df_metrics.shape[0] == min(df.shape)
 
-
-# TODO tests to write include hdbscan, NMF class and PVGE class
+def test_run_hdbscan() -> None:
+    df = pd.DataFrame(np.random.randint(0,2,size=(100,50)))
+    best_model, best_labels, best_model_sil_score, models_df = run_hdbscan(df)
