@@ -49,7 +49,12 @@ We recommend working through the <a href="https://github.com/SBRG/pyphylon/blob/
 
 Contributions are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
-Please make sure to update tests as appropriate. Tests are performed using pytest, so please install pytest in addition to the package requirements if you wish to contribute and run tests. calling `pytest` in the terminal from the root of the package should run all tests implemented to this point. 
+Please make sure to update tests as appropriate. Tests are performed using pytest, so please install 'pytest' in addition to the package requirements if you wish to contribute and run tests. Calling `pytest` in the terminal from the root of the package should run all tests implemented to this point. 
+
+Install pytest:
+```
+pip install pytest
+```
 
 ## License
 
