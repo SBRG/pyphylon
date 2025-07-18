@@ -5,13 +5,13 @@ import  pytest
 
 
 def test_load_config() -> None:
-    CONFIG = load_config('examples/config.example.yml')
+    CONFIG = load_config('pyphylon/test/data/util_test_files/config.example.yml')
     assert CONFIG['WORKDIR'] == 'data/'
     assert CONFIG['SPECIES_NAME'] == "Streptococcus pyogenes"
     assert CONFIG['DEBUG'] == True
     assert CONFIG['PG_NAME']  =="SPyogenes"
-    assert CONFIG['METADATA_FILE']  == "/examples/data/metadata/spyogenes_metadata_summary.tsv"
-    assert CONFIG['GENOMES_FILE']  == "/examples/data/metadata/spyogenes_genome_summary.tsv"
+    assert CONFIG['METADATA_FILE']  == "pyphylon/test/data/util_test_files/spyogenes_metadata_summary.tsv"
+    assert CONFIG['GENOMES_FILE']  == "pyphylon/test/data/util_test_files/spyogenes_genome_summary.tsv"
     assert CONFIG['FILTERED_GENOMES_FILE']  == "/examples/data/interim/mash_scrubbed_species_metadata_2b.csv"
 
 
