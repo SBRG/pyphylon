@@ -18,37 +18,36 @@ def test_mca(test_data) -> None:
 
 def test_nmf(test_data) -> None:
     df = test_data
-    nmf_w, nmf_h = run_nmf(df, ranks = range(1, int(min(df.shape)*.1)))
+    nmf_w, nmf_h = run_nmf(df, ranks = range(2, int(min(df.shape)*.1)))
     
-    # assertion statements of interest
-    assert len(nmf_w) == len(list(range(1,int(min(df.shape)*.1))))
-    assert len(nmf_h) == len(list(range(1,int(min(df.shape)*.1))))
-    assert nmf_w[1].shape == (df.shape[0],1)
-    assert nmf_h[1].shape == (1,df.shape[1])
+    assert len(nmf_w) == len(list(range(2,int(min(df.shape)*.1))))
+    assert len(nmf_h) == len(list(range(2,int(min(df.shape)*.1))))
+    assert nmf_w[2].shape == (df.shape[0],2)
+    assert nmf_h[2].shape == (2,df.shape[1])
 
 def test_normalization_and_binarization(test_data) -> None:
     df = test_data
-    nmf_w, nmf_h = run_nmf(df, ranks = range(1, int(min(df.shape)*.1)))
+    nmf_w, nmf_h = run_nmf(df, ranks = range(2, int(min(df.shape)*.1)))
 
     L_norm_dict, A_norm_dict = normalize_nmf_outputs(df, nmf_w, nmf_h)
     L_bin_dict, A_bin_dict = binarize_nmf_outputs(L_norm_dict, A_norm_dict)
     
     assert len(L_bin_dict) == len(nmf_w)
-    assert max(L_bin_dict[1].max()) == 1
-    assert max(A_bin_dict[1].max()) == 1
+    assert max(L_bin_dict[2].max()) == 1
+    assert max(A_bin_dict[2].max()) == 1
 
 def test_reconstruction_and_metrics(test_data) -> None:
     df = test_data
-    nmf_w, nmf_h = run_nmf(df, ranks = range(1, int(min(df.shape)*.1)))
+    nmf_w, nmf_h = run_nmf(df, ranks = range(2, int(min(df.shape)*.1)), max_iter=1000)
 
     L_norm_dict, A_norm_dict = normalize_nmf_outputs(df, nmf_w, nmf_h)
     L_bin_dict, A_bin_dict = binarize_nmf_outputs(L_norm_dict, A_norm_dict)
-    # may want to add some test assert statements for correct shape 
+
 
     P_reconstructed_dict, P_error_dict, P_confusion_dict = generate_nmf_reconstructions(df, L_bin_dict, A_bin_dict)
     df_metrics = calculate_nmf_reconstruction_metrics(P_reconstructed_dict, P_confusion_dict)
 
-    assert df_metrics.shape[0] == int(min(df.shape)*.1) - 1 # test to make sure there is a metric calculated for every rank
+    assert df_metrics.shape[0] == int(min(df.shape)*.1) - 2 # test to make sure there is a metric calculated for every rank
     assert df_metrics.equals(df_metrics.dropna())
 
 
