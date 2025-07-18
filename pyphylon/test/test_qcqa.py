@@ -8,7 +8,7 @@ import os
 def genome_file():
     from pyphylon.util import load_config
     CONFIG = load_config('pyphylon/test/data/util_test_files/config.example.yml')
-    return '.' + CONFIG['GENOMES_FILE']
+    return CONFIG['GENOMES_FILE']
 
 @pytest.fixture
 def species_name():
