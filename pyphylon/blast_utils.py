@@ -4,6 +4,7 @@ Functions for interacting with blast and blastDBs from pyphylon
 
 import pandas as pd
 import subprocess
+from tqdm import tqdm
 
 def make_blast_db(fasta_file, output_location, dbtype = 'prot'):
     """
@@ -23,6 +24,17 @@ def make_blast_db(fasta_file, output_location, dbtype = 'prot'):
     print("Finished running, database created at " + output_location)
 
 
+def extract_reference_dna_sequences(cd_hit_results, species, outfile):
+    alleles_to_headers = {}
+    with open(cd_hit_results + '/' + species + '_allele_names.tsv', 'r') as f:
+        for line in f:
+            line = line.split()
+            allele = line[0]
+            for header in line[1:]:
+                alleles_to_headers[header] = allele
+            
+
+    
 
 def extract_reference_sequences(cd_hit_results, species, outfile):
     ''' 
@@ -30,7 +42,7 @@ def extract_reference_sequences(cd_hit_results, species, outfile):
 
     Parameters:
     cd_hit_results - location of cd-hit results
-    species - name of the species (for cd-hit file paths
+    species - name of the species (for cd-hit file paths)
     outfile - file to write output to
     '''
     # create dictionary of headers to alleles
@@ -57,7 +69,50 @@ def extract_reference_sequences(cd_hit_results, species, outfile):
                     active_allele = line[1:-1]
                 if active_allele in representative_alleles:
                     out.write(line)
-                    
+
+
+def extract_reference_dna_sequences(data_path, species, outfile):
+    ''' 
+    Extract a file of all of the DNA sequences of representative alleles
+
+    Parameters:
+    data_path - location of pangenome results to access cd-hit results and bakta files
+    species - name of the species (for cd-hit file paths)
+    outfile - file to write output to
+    '''
+    # create dictionary of headers to alleles
+    alleles_to_headers = {}
+    with open(data_path + 'processed/cd-hit-results' + '/' + species + '_allele_names.tsv', 'r') as f:
+        for line in f:
+            line = line.split()
+            allele = line[0]
+            for header in line[1:]:
+                alleles_to_headers[header] = allele
+
+    
+    representative_headers = []
+    with open(data_path + 'processed/cd-hit-results' + '/' + species + '.clstr', 'r') as f:
+        for line in f:
+            if '*' in line:
+                seq = line.split()[2][1:-3]
+                representative_headers.append(seq)
+                
+    
+    with open(outfile, 'w') as out:
+        for seq in tqdm(representative_headers):
+            genome = seq.split('_')[0]
+            with open(data_path + 'processed/bakta' + '/' + genome + '/' + genome + '.ffn', 'r') as f:
+                active_header = False
+                for line in f:
+                    if '>' in line and line.split()[0][1:] == seq:
+                        active_header = True
+                        out.write('>' + alleles_to_headers[line.split()[0][1:]] + '\n')
+                    elif active_header:
+                        if '>' in line:
+                            break
+                        out.write(line)
+                        
+                        
     
             
 def blast_localdb_enrichment(blastdb, query_file, output_file, input_type = 'prot', dbtype = 'prot', e_val = 1e-2):

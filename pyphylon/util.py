@@ -81,8 +81,8 @@ def _convert_sparse(df: pd.DataFrame, dtype='int8'):
 
 def _get_normalization_diagonals(W):
     # Generate normalization diagonal matrices
-    normalization_vals = [1/np.quantile(W[col], q=0.99) for col in W.columns]
-    recipricol_vals = [1/x for x in normalization_vals]
+    normalization_vals = [1/np.quantile(W[col], q=0.99) if np.quantile(W[col], q=0.99) > 0 else 0 for col in W.columns]
+    recipricol_vals = [1/x if x != 0 else 0 for x in normalization_vals]
     
     D1 = np.diag(normalization_vals)
     D2 = np.diag(recipricol_vals)
