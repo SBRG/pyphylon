@@ -13,3 +13,6 @@ prince
 kneebow
 selenium
 webdriver-manager
+pyyaml
+ipywidgets
+beautifulsoup4

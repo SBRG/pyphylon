@@ -231,10 +231,10 @@ def run_densmap(
     else:
         n_neighbors = 0.01 * min(data.shape)
     
-    if len(embedding) == 0:
-        raise ValueError("Empty embedding array provided")
+    if len(data) == 0:
+        raise ValueError("Empty data array provided")
 
-    if len(embedding) == 1:
+    if len(data) == 1:
         logging.warning("Only one point provided. Returning single-cluster result.")
         return HDBSCAN(), np.array([0]), 1.0, pd.DataFrame()
     
@@ -274,7 +274,7 @@ def run_hdbscan(
     """
     # Define ranges for HDBSCAN parameters to tune
     max_size = 0.05 * max(embedding.shape)
-    if max_range < 100:
+    if not max_range or max_range < 100:
         max_size = 100
     else:
         max_size = max_range
@@ -311,7 +311,8 @@ def run_hdbscan(
                 min_cluster_size=min_cluster_size,
                 min_samples=min_samples,
                 metric='euclidean',
-                core_dist_n_jobs=core_dist_n_jobs
+                core_dist_n_jobs=core_dist_n_jobs,
+                gen_min_span_tree=True
             )
             labels = clusterer.fit_predict(embedding)
 
