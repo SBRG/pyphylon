@@ -25,7 +25,8 @@ setup(
         "Operating System :: OS Independent",
     ],
     extras_require={
-        'cd-hit': ['cd-hit']
+        'cd-hit': ['cd-hit'],
+        'tests': ['pytest']
     },
     python_requires='>=3.11',
 )
