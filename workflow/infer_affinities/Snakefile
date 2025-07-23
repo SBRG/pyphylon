@@ -1,0 +1,117 @@
+# This snakefile will do the following:
+# - annotate data with bakta
+# - run MASH on sequence relative to the sketches from the pangenome
+# - run CD-HIT2D against pangenome sequences
+
+configfile: workflow.source_path("/examples/config.yml")
+PG_NAME = config['PG_NAME']
+FILTERED_GENOMES_FILE = "/examples/data/interim/mash_scrubbed_species_metadata_2b.csv"
+
+SAMPLES = list(glob_wildcards('/examples/data/inferring_affinities/input_strains/fna/{sample}.fna')[0])
+print("Samples to be Processed:")
+for sample in SAMPLES:
+    print(sample)
+
+rule all:
+    input:
+        '/examples/data/processed/mash/combined_sketch.msh',
+        f'/examples/data/processed/cd-hit-results/{PG_NAME}_representative_sequences',
+        expand("/examples/data/inferring_affinities/mash/{sample}_distances.txt", sample=SAMPLES),
+        expand("/examples/data/inferring_affinities/bakta/{sample}/cd_hit/{sample}.clstr", sample=SAMPLES),
+        "/examples/data/inferring_affinities/combined_mash_distances.csv",
+        "/examples/data/inferring_affinities/combined_P_matrix.csv",
+
+rule mash:
+    input:
+        '/examples/data/inferring_affinities/input_strains/fna/{sample}.fna'
+    output:
+        "/examples/data/inferring_affinities/mash/{sample}_distances.txt"
+    singularity:
+        'docker://staphb/mash:latest'
+    shell:
+        """
+            mash dist /examples/data/processed/mash/combined_sketch.msh {input} > {output}
+        """
+
+rule get_db:
+    output:
+       directory("db-light")
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    shell:
+        """
+        wget https://zenodo.org/record/10522951/files/db-light.tar.gz && tar -xzf db-light.tar.gz && rm db-light.tar.gz && amrfinder_update --force_update --database db-light/amrfinderplus-db
+        """
+
+rule batka_annotation: # https://github.com/oschwengers/bakta
+    input:
+        '/examples/data/inferring_affinities/input_strains/fna/{sample}.fna',
+        "db-light"
+    output:
+        "/examples/data/inferring_affinities/bakta/{sample}/{sample}.fna",
+        "/examples/data/inferring_affinities/bakta/{sample}/{sample}.gff3",
+        "/examples/data/inferring_affinities/bakta/{sample}/{sample}.faa"
+    container:
+        'docker://oschwengers/bakta@sha256:86036e6a8eb836a3dd2d53e84cc3e63623e56b7f192fac12f8cb5da56859b039'
+    threads: 4
+    params:
+        locus_tag=lambda wildcards: wildcards.sample
+    shell:
+        "bakta --db db-light --output /examples/data/inferring_affinities/bakta/{wildcards.sample} --locus-tag {params.locus_tag} --prefix {wildcards.sample} --threads {threads} --force {input[0]}"
+
+rule combine_mash_locations:
+    input:
+        expand("/examples/data/inferring_affinities/mash/{sample}_distances.txt", sample=SAMPLES)
+    output:
+        "/examples/data/inferring_affinities/mash/mash_paths.txt"
+    shell:
+        """
+            printf "%s\n" {input} > {output}
+        """
+
+rule combine_mash:
+    input:
+        "/examples/data/inferring_affinities/mash/mash_paths.txt"
+    output:
+        "/examples/data/inferring_affinities/combined_mash_distances.csv"
+    shell:
+        """
+            python3 /workflow/infer_affinities/combine_mash.py {input} {output} {FILTERED_GENOMES_FILE}
+        """
+
+rule cd_hit:
+    input:
+        "/examples/data/inferring_affinities/bakta/{sample}/{sample}.faa"
+    output:
+        "/examples/data/inferring_affinities/bakta/{sample}/cd_hit/{sample}.clstr"
+    container:
+        'docker://biocontainers/cd-hit@sha256:e4a7cf8813264803b1229b2dd2aaa396a6020798bc64595d2b880a5aad01d927'
+    threads:
+        4
+    params:
+        outpath =  "/examples/data/inferring_affinities/bakta/{sample}/cd_hit/{sample}"
+    shell:
+        """
+            cd-hit-2d -i /examples/data/processed/cd-hit-results/{PG_NAME}_representative_sequences -i2 {input} -o {params.outpath} -c .8 -n 5 -aL 0.8 -T 0 -M 0 -g 1
+        """
+
+rule combine_cd_hit_locations:
+    input:
+        expand("/examples/data/inferring_affinities/bakta/{sample}/cd_hit/{sample}.clstr", sample=SAMPLES)
+    output:
+        temporary("/examples/data/inferring_affinities/bakta/cd_hit_paths.txt")
+    shell:
+        """
+            printf "%s\n" {input} > {output}
+        """
+
+rule combine_cd_hit:
+    input:
+        "/examples/data/inferring_affinities/bakta/cd_hit_paths.txt"
+    output:
+        "/examples/data/inferring_affinities/combined_P_matrix.csv"
+    shell:
+        """
+            python3 /workflow/infer_affinities/combine_P_matrix.py {input} {output} {FILTERED_GENOMES_FILE}
+        """
+    
