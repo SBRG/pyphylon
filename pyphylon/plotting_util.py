@@ -11,7 +11,7 @@ from tqdm.notebook import tqdm, trange
 from IPython.display import display, HTML
 import plotly.graph_objects as go
 import scipy
-
+from collections import defaultdict
 
 def _get_attr(attributes, attr_id, ignore=False):
     """
@@ -943,6 +943,36 @@ def generate_split_genes(X : pd.DataFrame, linkage_method : str = "ward", linkag
 
     return df_split_values, clusters, split_tree, links
 
+
+def generate_split_genes_lists(X : pd.DataFrame, linkage_method : str = "ward", linkage_metric : str= 'euclidean'):
+    """
+        Function to calculate the gene sets of the categories of genes described in `get_gene_sets` for a hierarchical
+        clustering of the provided X (m x n) matrix. Returns a dictionary containing a dictionary of the gene split
+        lists for each split in the tree structure. 
+
+        Parameters:
+            X (pd.DataFrame): A dataframe reprsenting the data to be clustered (ex. the L_binarized  matrix)
+            linkage_method (str): a linkage method accepted as input to scipy's linkage function
+            linkage_metric (str): a distance metric to be used for linkage calculations by scipy
+
+        Returns:
+            split_genes_dict (dict): dictionary with the lists of genes for each category of genes for each split
+            clusters (dict): a dictionary containing lists of the clusters present in the generated 
+                linkage matrix with each cluster represented by an intiger. The first n intigers 
+                correspond to the n columns of X (assuming X is m x n)
+            split_tree (dict): a dictionary of dictionaries representing the tree structure of the above clusters
+            links (numpy array): a numpy array of the linkage matrix output by the hierarchical clustering
+    """
+
+    clusters, split_tree, links = generate_dendrogram_and_split(X, linkage_method = linkage_method, linkage_metric= linkage_metric)
     
-
-
+    split_gene_sets = defaultdict(dict)
+    
+    for cluster in (list(clusters.keys())):
+        gene_sets = [X.index[x] for x in get_gene_sets(X, clusters, split_tree, cluster)]
+        split_gene_sets[cluster]['ubiquitous_exclusive_genes'] = gene_sets[0]
+        split_gene_sets[cluster]['exclusive_genes'] = gene_sets[1]
+        split_gene_sets[cluster]['total_split_genes'] = gene_sets[2]
+        split_gene_sets[cluster]['total_ubiquitous_genes'] = gene_sets[3]
+    
+    return split_gene_sets, clusters, split_tree, links
