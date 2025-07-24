@@ -15,7 +15,7 @@ Python package for analyzing and visualizing co-occuring gene / allele sets (phy
 Clone the repository to your local machine:
 
 ```bash
-git clone https://github.com/yourusername/pyphylon.git
+git clone https://github.com/SBRG/pyphylon.git
 ```
 
 Navigate into the project directory:
