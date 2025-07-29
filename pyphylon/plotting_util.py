@@ -10,8 +10,8 @@ import pickle
 from tqdm.notebook import tqdm, trange
 from IPython.display import display, HTML
 import plotly.graph_objects as go
-
-
+import scipy
+from collections import defaultdict
 
 def _get_attr(attributes, attr_id, ignore=False):
     """
@@ -823,3 +823,156 @@ def unique_genes_by_phylon(df: pd.DataFrame) -> dict:
 
     return unique_genes
 
+
+def generate_dendrogram_and_split(X: pd.DataFrame, linkage_method = "ward", linkage_metric='euclidean') -> tuple:
+    '''
+    This function generates a linkage matrix based on hierarchical clustering and returns the membership
+    of each cluster in terms of indices corresponding the the columns of the input matrix. It also returns
+    a tree of the cluster values which represents the structure of the dendrogram.
+
+    Parameters:
+        X (pd.DataFrame): A dataframe reprsenting the data to be clustered (ex. the L_binarized  matrix)
+        linkage_method (str): a linkage method accepted as input to scipy's linkage function
+        linkage_metric (str): a distance metric to be used for linkage calculations by scipy
+    
+    Returns:
+        clusters (dict): a dictionary containing lists of the clusters present in the generated 
+            linkage matrix with each cluster represented by an intiger. The first n intigers 
+            correspond to the n columns of X (assuming X is m x n)
+        split_tree (dict): a dictionary of dictionaries representing the tree structure of the above clusters
+        links (numpy array): a numpy array of the linkage matrix output by the hierarchical clustering
+    '''
+    
+    X = X.T
+    links = scipy.cluster.hierarchy.linkage(X, method=linkage_method, metric = linkage_metric)
+    
+    
+    clusters = {x:[x] for x in range(len(X.index))}
+    
+    for i, (left, right, _, _) in enumerate(links):
+        clusters[len(clusters)] = clusters[left] + clusters[right]
+    
+    
+    def track_split(cluster, clusters, links):
+        if len(clusters[cluster]) == 1:
+            return cluster
+    
+        row = cluster - len(links) - 1
+        left_child = int(links[row][0])
+        right_child = int(links[row][1])
+        
+        return {cluster:{left_child:track_split(left_child, clusters, links), right_child:track_split(right_child, clusters, links)}}
+    
+    
+    split_tree = track_split(max(clusters.keys()), clusters, links)
+
+    return clusters, split_tree, links
+
+def get_gene_sets(X: pd.DataFrame, clusters: dict, splits: dict, cluster: str|int) -> tuple:
+    """
+        This function takes in a matrix X (m by n) of genes by phylons (or strains), a dendrogram structure (as output by the
+        `generate_dendrogram_and_split` function, the clusters output by this same function, and a cluster of interest from 
+        clusters. It returns four lists boolean values relevant to this cluster's gene content for each category (described below).
+
+        Parameters:
+            X (pd.DataFrame): A dataframe reprsenting the data to be clustered (ex. the L_binarized  matrix)
+            clusters (dict): a dictionary containing lists of the clusters present in the generated 
+                linkage matrix with each cluster represented by an intiger. The first n intigers 
+                correspond to the n columns of X (assuming X is m x n)
+            split_tree (dict): a dictionary of dictionaries representing the tree structure of the above clusters
+            cluster (int or str): cluster of interest from  clusters
+
+        Returns:
+            ubiquitous_exclusive_genes (list): a boolean list of length m representing the genes in the index of X which 
+                are found in all members of this cluster and not in any other leaf nodes of the tree
+            exclusive_genes (list): a boolean list of length m representing the genes in the index of X which 
+                are found in any of the  members of this cluster and not in any other leaf nodes of the tree
+            total_split_genes (list): a boolean list of length m representing the genes in the index of X which 
+                are found in any of the  members of this cluster
+            total_ubiquitous_genes (list): a boolean list of length m representing the genes in the index of X which 
+                are found in all of the  members of this cluster
+    """
+    cluster_members = clusters[cluster]
+    cluster_size = len(cluster_members)
+
+    df_array = X.values
+    member_cols = np.array(cluster_members)
+    other_cols = np.array([x for x in range(X.shape[1]) if x not in member_cols])
+
+    if other_cols.size == 0:  # Handle edge case
+        ubiquitous_exclusive_genes = (df_array[:, member_cols] == 1).all(axis=1)
+        exclusive_genes = (df_array[:, member_cols] == 1).any(axis=1)
+        total_split_genes = (df_array[:, member_cols] == 1).any(axis=1)
+        total_ubiquitous_genes = (df_array[:, member_cols] == 1).all(axis=1)
+        return ubiquitous_exclusive_genes, exclusive_genes, total_split_genes, total_ubiquitous_genes
+    
+    ubiquitous_exclusive_genes = (df_array[:, member_cols] == 1).all(axis=1) & (df_array[:, other_cols] == 0).all(axis=1)
+    exclusive_genes = (df_array[:, member_cols] == 1).any(axis=1) & (df_array[:, other_cols] == 0).all(axis=1)
+    total_split_genes = (df_array[:, member_cols] == 1).any(axis=1)
+    total_ubiquitous_genes = (df_array[:, member_cols] == 1).all(axis=1)
+    
+    return ubiquitous_exclusive_genes, exclusive_genes, total_split_genes, total_ubiquitous_genes
+
+def generate_split_genes(X : pd.DataFrame, linkage_method : str = "ward", linkage_metric : str= 'euclidean'):
+    """
+        Function to calculate the  number of the categories of genes described in `get_gene_sets` for a hierarchical
+        clustering of the provided X (m x n) matrix. Returns a dataframe containing cluster association with each
+        of these gene set sizes and the clusters and split tree from the generated clustering.
+
+        Parameters:
+            X (pd.DataFrame): A dataframe reprsenting the data to be clustered (ex. the L_binarized  matrix)
+            linkage_method (str): a linkage method accepted as input to scipy's linkage function
+            linkage_metric (str): a distance metric to be used for linkage calculations by scipy
+
+        Returns:
+            df_split_values (dataframe): dataframe with the clusters as indices containing the number of genes
+                in this cluster for each of the 4 gene sets as described by `get_gene_sets`
+            clusters (dict): a dictionary containing lists of the clusters present in the generated 
+                linkage matrix with each cluster represented by an intiger. The first n intigers 
+                correspond to the n columns of X (assuming X is m x n)
+            split_tree (dict): a dictionary of dictionaries representing the tree structure of the above clusters
+            links (numpy array): a numpy array of the linkage matrix output by the hierarchical clustering
+    """
+    clusters, split_tree, links = generate_dendrogram_and_split(X, linkage_method = linkage_method, linkage_metric= linkage_metric)
+    
+    df_split_values = pd.DataFrame(index = clusters.keys(), columns = ['ubiquitous_exclusive_genes', 'exclusive_genes', 
+                            'total_split_genes','total_ubiquitous_genes'])
+    
+    for cluster in (list(clusters.keys())):
+        df_split_values.loc[cluster] = [sum(x) for x in get_gene_sets(X, clusters, split_tree, cluster)]
+
+    return df_split_values, clusters, split_tree, links
+
+
+def generate_split_genes_lists(X : pd.DataFrame, linkage_method : str = "ward", linkage_metric : str= 'euclidean'):
+    """
+        Function to calculate the gene sets of the categories of genes described in `get_gene_sets` for a hierarchical
+        clustering of the provided X (m x n) matrix. Returns a dictionary containing a dictionary of the gene split
+        lists for each split in the tree structure. 
+
+        Parameters:
+            X (pd.DataFrame): A dataframe reprsenting the data to be clustered (ex. the L_binarized  matrix)
+            linkage_method (str): a linkage method accepted as input to scipy's linkage function
+            linkage_metric (str): a distance metric to be used for linkage calculations by scipy
+
+        Returns:
+            split_genes_dict (dict): dictionary with the lists of genes for each category of genes for each split
+            clusters (dict): a dictionary containing lists of the clusters present in the generated 
+                linkage matrix with each cluster represented by an intiger. The first n intigers 
+                correspond to the n columns of X (assuming X is m x n)
+            split_tree (dict): a dictionary of dictionaries representing the tree structure of the above clusters
+            links (numpy array): a numpy array of the linkage matrix output by the hierarchical clustering
+    """
+
+    clusters, split_tree, links = generate_dendrogram_and_split(X, linkage_method = linkage_method, linkage_metric= linkage_metric)
+    
+    split_gene_sets = defaultdict(dict)
+    
+    for cluster in (list(clusters.keys())):
+        gene_sets = [X.index[x] for x in get_gene_sets(X, clusters, split_tree, cluster)]
+        split_gene_sets[cluster]['ubiquitous_exclusive_genes'] = gene_sets[0]
+        split_gene_sets[cluster]['exclusive_genes'] = gene_sets[1]
+        split_gene_sets[cluster]['total_split_genes'] = gene_sets[2]
+        split_gene_sets[cluster]['total_ubiquitous_genes'] = gene_sets[3]
+    
+    return split_gene_sets, clusters, split_tree, links
