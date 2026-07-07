@@ -16,3 +16,4 @@ webdriver-manager
 pyyaml
 ipywidgets
 beautifulsoup4
+networkx

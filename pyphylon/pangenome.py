@@ -2161,8 +2161,211 @@ def find_pangenome_segments(df_genes, threshold=0.1, ax=None):
         return segments, popt, r_squared, mae, ax
     else:
         return segments, popt, r_squared, mae
-    
 
+
+def find_pangenome_segments_panaroo(df_genes, threshold=0.1, custom_core_threshold=None, custom_rare_threshold=None, ax=None):
+    '''
+    Computes the gene frequency thresholds at which a gene can be categorized as
+    core, accessory, or rare. Specifically, models the gene frequency distribution
+    as the sum of two power laws (one flipped), and fits the CDF to a five-parameter
+    function derived from those power laws. Also identifies the inflection point and
+    the core and rare extremes relative to the inflection point and threshold.
+
+          PMF(x;c1,c2,a1,a2) ~ c1 * x^-a1 + c2 * (n-x)^-a2
+        CDF(x;c1,c2,a1,a2,k) ~ c1/(1-a1) * x^(1-a1) - c2/(1-a2) * (n-x)^(1-a2) + k
+
+    Where x = frequency, n = maximum frequency + 1, other variables are parameters.
+
+    Pangenome segments example at 10%:
+    - N = total strains, R = computed inflection point
+    - Core: Observed in >= R + (1 - 0.1) * (N-R) strains
+    - Rare: Observed in <= 0.1 * R strains
+    - Accessory: Everything in between
+
+    Parameters
+    ----------
+    df_genes : pd.DataFrame
+        Binary gene x strain table.
+    threshold : float
+        Proximity to each frequency extreme compared to inflection point
+        that determines if a gene is core, rare, or accessory (default 0.1)
+    custom_core_threshold : float, optional
+        Custom threshold for core genes as a percentage (0 to 1). If provided,
+        overrides the default core threshold (e.g., 0.9671 for 96.71%).
+    custom_rare_threshold : float, optional
+        Custom threshold for rare genes as a percentage (0 to 1). If provided,
+        overrides the default rare threshold (e.g., 0.05 for 5%).
+    ax : plt.axes
+        If provided, plots pangenome frequency CDF with segments (default None)
+
+    Returns
+    -------
+    segments : tuple
+        2-tuple with (min core limit, max rare limit), not rounded.
+    popt : tuple
+        5-tuple with fitted CDF parameters (c1,c2,a1,a2,k). Note that
+        c1, c2, and k are scaled relative to the number of rare genes
+    r_squared : float
+        R^2 between fit and observed cumulative gene frequency distribution
+    mae : float
+        Mean absolute error between fit and observed cumulative gene frequency distribution
+    ax : plt.axes
+        If ax is not None, returns axis with plots
+    '''
+
+    ''' Computing gene frequencies and frequency counts '''
+    if type(df_genes) == pd.DataFrame:  # data frame provided
+        df_gene_freq = df_genes.fillna(0).sum(axis=1)
+    else:  # array provided
+        df_gene_freq = pd.Series(
+            data=df_genes.sum(axis=1),
+            index=map(lambda x: 'G' + str(x), range(df_genes.shape[0]))
+        )
+
+    df_freq_counts = df_gene_freq.value_counts()
+
+    if 0 in df_freq_counts.index:  # filter out unobserved genes
+        df_freq_counts.drop(index=0, inplace=True)
+
+    df_freq_counts = df_freq_counts[sorted(df_freq_counts.index)]
+    cumulative_frequencies = np.cumsum(df_freq_counts.values)
+    frequency_bins = np.array(df_freq_counts.index)
+
+    ''' Fitting CDF '''
+    X = frequency_bins.astype(float)
+    Y = cumulative_frequencies.astype(float)
+    n = max(frequency_bins) + 1
+    N = max(frequency_bins)  # Total number of strains
+
+    dual_power_cdf = lambda x, c1, c2, a1, a2, k: \
+        Y[0] * (
+            c1 * np.power(x, 1.0 - a1) / (1.0 - a1)
+            - c2 * np.power(n - x, 1.0 - a2) / (1.0 - a2)
+            + k
+        )
+
+    p0 = [1.0, 1.0, 2.0, 2.0, 1.0]
+    bounds = (
+        [0.0, 0.0, 1.0, 1.0, 0.0],
+        [np.inf, np.inf, np.inf, np.inf, Y[-1] / Y[0]]
+    )
+
+    popt, pcov = scipy.optimize.curve_fit(
+        dual_power_cdf,
+        X,
+        Y,
+        p0=p0,
+        bounds=bounds,
+        maxfev=100000
+    )
+
+    ''' Extracting inflection point of CDF and frequency thresholds '''
+    dual_power_pdf = lambda x, c1, c2, a1, a2: (
+        Y[0] * (
+            c1 * np.power(x, -a1)
+            + c2 * np.power(n - x, -a2)
+        )
+    )
+
+    dual_power_pdf_fit = lambda x: dual_power_pdf(x, *popt[:4])
+
+    res = scipy.optimize.minimize_scalar(
+        dual_power_pdf_fit,
+        method='bounded',
+        bounds=[1, n - 1]
+    )
+
+    inflection_freq = res.x
+
+    # Set thresholds based on custom values or default calculations
+    if custom_rare_threshold is not None:
+        rare_strains_max = custom_rare_threshold * N
+    else:
+        rare_strains_max = inflection_freq * threshold
+
+    if custom_core_threshold is not None:
+        core_strains_min = custom_core_threshold * N
+    else:
+        core_strains_min = (
+            inflection_freq
+            + (n - 1 - inflection_freq) * (1.0 - threshold)
+        )
+
+    segments = (core_strains_min, rare_strains_max)
+
+    ''' Curve fit evaluation: R^2 and MAE '''
+    Yfit = np.array([dual_power_cdf(x, *popt) for x in X])
+
+    SStot = np.sum(np.square(Y - Y.mean()))
+    SSres = np.sum(np.square(Y - Yfit))
+
+    r_squared = 1 - (SSres / SStot)
+    mae = np.abs(Y - Yfit).mean()
+
+    ''' Optionally, generating plot '''
+    if ax:
+        ax.plot(X, Y, label='observed')
+        ax.plot(X, Yfit, label='fit', ls='--')
+        ax.scatter(
+            [inflection_freq],
+            [dual_power_cdf(inflection_freq, *popt)],
+            label='inflection point',
+            color='black',
+            alpha=0.7
+        )
+
+        ax.axvline(rare_strains_max, ls='--', color='k')
+        ax.axvline(core_strains_min, ls='--', color='k')
+        ax.axvline(inflection_freq, ls='--', color='lightgray')
+
+        rare_rounded = int(rare_strains_max) + 1
+        core_rounded = int(core_strains_min)
+
+        rare_text = 'Rare:\n<' + str(rare_rounded)
+        core_text = 'Core:\n>' + str(core_rounded)
+
+        r2_text = 'R^2=' + str(np.round(r_squared, 3))
+        mae_text = 'MAE=' + str(np.round(mae, 2))
+
+        ax.text(
+            rare_strains_max + n * 0.02,
+            Y[0],
+            rare_text,
+            ha='left',
+            va='bottom'
+        )
+
+        ax.text(
+            core_strains_min - n * 0.02,
+            Y[0],
+            core_text,
+            ha='right',
+            va='bottom'
+        )
+
+        ax.text(
+            rare_strains_max + n * 0.1,
+            0.95 * Y[-1],
+            r2_text,
+            ha='left',
+            va='bottom'
+        )
+
+        ax.text(
+            rare_strains_max + n * 0.1,
+            0.95 * Y[-1],
+            mae_text,
+            ha='left',
+            va='top'
+        )
+
+        ax.set_xlabel('Gene frequency')
+        ax.set_ylabel('Cumulative genes')
+
+        return segments, popt, r_squared, mae, ax
+
+    else:
+        return segments, popt, r_squared, mae
 
 import scipy.sparse
 from scipy.sparse import coo_matrix
