@@ -1,0 +1,62 @@
+configfile: workflow.source_path("/examples/config.yml")
+PG_NAME = config['PG_NAME']
+FILTERED_GENOMES_FILE = config['FILTERED_GENOMES_FILE']
+
+# panaroo  settings for downstream use
+CORE_GENOME_CUTOFF = config['CORE_GENOME_CUTOFF']
+FAMILY_THRESHOLD = config['FAMILY_THRESHOLD']
+CLEAN_MODE = config['CLEAN_MODE']
+PANAROO_THREADS = config['THREADS']
+PANAROO_ALIGNER = config['ALIGNER']
+PANAROO_ALIGNMENT = config['ALIGNMENT']
+
+if PANAROO_ALIGNMENT.lower() == "none":
+    alignment_args = ""
+else:
+    alignment_args = (
+        f"-a {PANAROO_ALIGNMENT} "
+        f"--aligner {PANAROO_ALIGNER}"
+    )
+
+
+import pandas as pd
+genomes = pd.read_csv(FILTERED_GENOMES_FILE, dtype={"genome_id":str})
+SAMPLES = genomes['genome_id'].tolist()
+
+rule all:
+    input:
+        'processed/panaroo_results/' + PG_NAME + '/final_graph.gml'
+
+
+rule generate_gff_list:
+    input:
+        gff_files = expand("processed/bakta/{sample}/{sample}.gff3", sample=SAMPLES)
+    output:
+        "processed/gff_list.txt"
+    shell:
+        """
+        for gff in {input.gff_files}; do
+            echo -e "$gff" >> {output}
+        done
+        """
+
+
+rule panaroo:
+    input:
+        gff_list="processed/gff_list.txt"
+    output:
+        "processed/panaroo_results/" + PG_NAME + "/final_graph.gml"
+    container:
+        "docker://jtburrow/panaroo_1.5.2:latest"
+    shell:
+        f"""
+        panaroo \
+            -i {{input.gff_list}} \
+            -o processed/panaroo_results/{PG_NAME} \
+            --clean-mode {CLEAN_MODE} \
+            -f {FAMILY_THRESHOLD} \
+            {alignment_args} \
+            -t {PANAROO_THREADS} \
+            --remove-invalid-genes \
+            --core_threshold {CORE_GENOME_CUTOFF}
+        """

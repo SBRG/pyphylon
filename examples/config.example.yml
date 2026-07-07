@@ -7,3 +7,14 @@ PG_NAME: "SPyogenes"
 METADATA_FILE: "/examples/data/metadata/spyogenes_metadata_summary.tsv"
 GENOMES_FILE: "/examples/data/metadata/spyogenes_genome_summary.tsv"
 FILTERED_GENOMES_FILE: "/examples/data/interim/mash_scrubbed_species_metadata_2b.csv"
+
+# OPTIONS FOR PANAROO PANGENOMES
+# Set these two for use if you elect to create a Panaroo-based pangenome
+PANAROO: FALSE
+CORE_GENOME_CUTOFF: .95 # set based on CD-HIT CAR Genome proportion before starting the panaroo workflow (notebook 3a in the examples)
+# Additional Panaroo parameters
+FAMILY_THRESHOLD: .8
+CLEAN_MODE: "sensitive"
+THREADS: 8
+ALIGNER: "none"
+ALIGNMENT: "none"
