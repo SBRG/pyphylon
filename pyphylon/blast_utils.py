@@ -5,6 +5,7 @@ Functions for interacting with blast and blastDBs from pyphylon
 import pandas as pd
 import subprocess
 from tqdm import tqdm
+import os
 
 def make_blast_db(fasta_file, output_location, dbtype = 'prot'):
     """
@@ -22,21 +23,67 @@ def make_blast_db(fasta_file, output_location, dbtype = 'prot'):
     subprocess.run(command)
 
     print("Finished running, database created at " + output_location)
-
-
-def extract_reference_dna_sequences(cd_hit_results, species, outfile):
-    alleles_to_headers = {}
-    with open(cd_hit_results + '/' + species + '_allele_names.tsv', 'r') as f:
-        for line in f:
-            line = line.split()
-            allele = line[0]
-            for header in line[1:]:
-                alleles_to_headers[header] = allele
             
 
-    
+def extract_reference_sequences(WORKDIR, species, outfile, PANAROO = False):
+    ''' 
+    Extract a file of all of the sequences of representative alleles
 
-def extract_reference_sequences(cd_hit_results, species, outfile):
+    Parameters:
+    WORKDIR - location of work directory
+    species - name of the species (for cd-hit file paths)
+    outfile - file to write output to
+    PANAROO - setting to use panaroo method over cd-hit method
+    '''
+
+    if PANAROO:
+        extract_reference_sequences_panaroo(os.path.join(WORKDIR + f'processed/panaroo_results/{species}/'), species, outfile)
+    else:
+        extract_reference_sequences_cdhit(os.path.join(WORKDIR + 'processed/cd-hit-results'), species, outfile)
+
+
+def extract_reference_sequences_panaroo(panaroo_results, species, outfile):
+    ''' 
+    Extract a file of all of the sequences of representative alleles
+
+    Parameters:
+    panaroo_results - location of panaroo results
+    species - name of the species (for cd-hit file paths)
+    outfile - file to write output to
+    '''
+    import networkx as nx
+
+    graph = nx.read_gml(os.path.join(panaroo_results, "final_graph.gml"))
+
+    with open(outfile, "w") as out:
+        for _, attributes in graph.nodes.data(True):
+            gene_name = attributes["name"]
+
+            # Protein sequences are stored as a semicolon-separated string
+            proteins = attributes["protein"].split(";")
+
+            # Select the longest non-fragmented protein sequence
+            representative = None
+            max_len = -1
+
+            for protein in proteins:
+                if "*" in protein:
+                    continue
+
+                if len(protein) > max_len:
+                    representative = protein
+                    max_len = len(protein)
+
+            if representative is None:
+                raise ValueError(
+                    f"No valid protein sequence found for Panaroo gene cluster '{gene_name}'."
+                )
+
+            out.write(f">{gene_name}\n")
+            out.write(f"{representative}\n")
+
+    
+def extract_reference_sequences_cdhit(cd_hit_results, species, outfile):
     ''' 
     Extract a file of all of the sequences of representative alleles
 
@@ -53,14 +100,14 @@ def extract_reference_sequences(cd_hit_results, species, outfile):
             allele = line[0]
             for header in line[1:]:
                 alleles_to_headers[header] = allele
-
+    
     representative_alleles = []
     with open(cd_hit_results + '/' + species + '.clstr', 'r') as f:
         for line in f:
             if '*' in line:
                 seq = line.split()[2][1:-3]
                 representative_alleles.append(alleles_to_headers[seq])
-
+    
     active_allele = None
     with open(cd_hit_results + '/' + species, 'r') as f:
         with open(outfile, 'w') as out:
@@ -71,7 +118,61 @@ def extract_reference_sequences(cd_hit_results, species, outfile):
                     out.write(line)
 
 
-def extract_reference_dna_sequences(data_path, species, outfile):
+def extract_reference_dna_sequences(WORKDIR, species, outfile, PANAROO=False):
+    '''
+    Extract a file of representative DNA sequences.
+
+    Parameters:
+    WORKDIR - location of work directory
+    species - species name
+    outfile - output fasta file
+    PANAROO - use Panaroo rather than CD-HIT
+    '''
+
+    if PANAROO:
+        extract_reference_dna_sequences_panaroo(
+            os.path.join(WORKDIR, "processed", "panaroo_results", species),
+            species,
+            outfile,
+        )
+    else:
+        extract_reference_dna_sequences_cdhit(
+            WORKDIR,
+            species,
+            outfile,
+        )
+
+
+import networkx as nx
+
+
+def extract_reference_dna_sequences_panaroo(panaroo_results, species, outfile):
+    '''
+    Extract representative DNA sequences from a Panaroo graph.
+
+    Parameters:
+    panaroo_results - location of Panaroo results
+    species - unused (included for API compatibility)
+    outfile - output fasta file
+    '''
+
+    graph = nx.read_gml(os.path.join(panaroo_results, "final_graph.gml"))
+
+    with open(outfile, "w") as out:
+        for _, attributes in graph.nodes.data(True):
+            gene_name = attributes["name"]
+            dna_seq = attributes["dna"]
+
+            if not dna_seq:
+                raise ValueError(
+                    f"No DNA sequence found for Panaroo gene cluster '{gene_name}'."
+                )
+
+            out.write(f">{gene_name}\n")
+            out.write(f"{dna_seq}\n")
+
+
+def extract_reference_dna_sequences_cdhit(data_path, species, outfile):
     ''' 
     Extract a file of all of the DNA sequences of representative alleles
 
@@ -96,7 +197,6 @@ def extract_reference_dna_sequences(data_path, species, outfile):
             if '*' in line:
                 seq = line.split()[2][1:-3]
                 representative_headers.append(seq)
-                
     
     with open(outfile, 'w') as out:
         for seq in tqdm(representative_headers):

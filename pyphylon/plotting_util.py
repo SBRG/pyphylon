@@ -118,7 +118,23 @@ def gff2pandas(gff_file, feature=["CDS"], index=None):
             DF_gff = DF_gff.drop_duplicates(index)
         DF_gff.set_index("locus_tag", drop=True, inplace=True)
 
-    return DF_gff[['accession', 'start', 'end', 'locus_tag']], region_len, oric
+    return DF_gff[['accession', 'start', 'end', 'locus_tag', 'strand']], region_len, oric
+
+def update_df_gff_panaroo(df_gff, gene_data_panaroo_refound, strain):
+    '''
+        Function to update dataframes from gff files with refound genes from Panaroo's refinding genes functionality and its gene_data file. 
+    '''
+
+    strain_temp_df = gene_data_panaroo_refound[gene_data_panaroo_refound.gff_file == strain]
+
+    max_index = max(df_gff.index)
+    for i, row in strain_temp_df.iterrows():
+        start = float(row.description.split(';')[0].split(':')[1].split('-')[0])
+        end = float(row.description.split(';')[0].split(':')[1].split('-')[1])
+        strand = row.description.split(';')[1].split(':')[1]
+        df_gff.loc[max_index + 1] = [row.scaffold_name, start, end, row.clustering_id, strand]
+        max_index += 1
+    return df_gff
 
 def h2a(x, header_to_allele):
     """

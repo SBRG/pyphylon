@@ -15,5 +15,6 @@ selenium
 webdriver-manager
 pyyaml
 ipywidgets
-beautifulsoup4
+beautifulsoup4word
+wordcloud
 networkx
