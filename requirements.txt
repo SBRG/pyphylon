@@ -18,3 +18,4 @@ ipywidgets
 beautifulsoup4word
 wordcloud
 networkx
+ortools

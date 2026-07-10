@@ -105,7 +105,7 @@ def generate_strain_vectors_panaroo(WORKDIR, SPECIES, STRAIN_IDS, chromosome_onl
         if chromosome_only:   
             DF_gff = DF_gff[DF_gff.accession == DF_gff.accession.value_counts().index[0]]
         
-        gene_order = DF_gff.sort_values(by = ['accession', 'start'])
+        gene_order = DF_gff.sort_values(by = ['accession', 'start']).drop_duplicates(subset='gene', keep = 'first')
         strain_vectors[strain] = gene_order
     return strain_vectors
         
@@ -145,7 +145,7 @@ def generate_strain_vectors_cdhit(WORKDIR, SPECIES, STRAIN_IDS, chromosome_only 
         if chromosome_only:   
             DF_gff = DF_gff[DF_gff.accession == DF_gff.accession.value_counts().index[0]]
         
-        gene_order = DF_gff.sort_values(by = ['accession', 'start'])
+        gene_order = DF_gff.sort_values(by = ['accession', 'start']).drop_duplicates(subset='gene', keep = 'first')
         
         strain_vectors[strain] = gene_order
 
