@@ -5,8 +5,6 @@ Functions for analyzing genome synteny and comparing between strains in a phylon
 import pandas as pd
 import numpy as np
 import networkx as nx
-from pyphylon.biointerp import generate_strain_vectors
-
 
 def get_phylon_strains(A_binarized, phylon):
     '''
