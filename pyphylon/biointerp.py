@@ -235,8 +235,9 @@ def explode_go_annos(functions):
     '''
     acc_functions = functions # don't filter by accessory genome...
 
-    cluster_to_go_functions = acc_functions[['cluster','go']]
-    cluster_to_go_functions.loc[:,'go'] = cluster_to_go_functions.loc[:,'go'].str.split(', ')
+    cluster_to_go_functions = acc_functions[['cluster', 'go']].copy()
+    cluster_to_go_functions['go'] = cluster_to_go_functions['go'].astype(object)
+    cluster_to_go_functions['go'] = cluster_to_go_functions['go'].str.split(', ')
     cluster_to_go_functions = cluster_to_go_functions.explode('go')
     cluster_to_go_functions
     
