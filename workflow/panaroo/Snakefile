@@ -49,9 +49,9 @@ rule panaroo:
     container:
         "docker://jtburrow/panaroo_1.5.2:latest"
     shell:
-        f"""
+        """
         panaroo \
-            -i {{input.gff_list}} \
+            -i {input.gff_list} \
             -o processed/panaroo_results/{PG_NAME} \
             --clean-mode {CLEAN_MODE} \
             -f {FAMILY_THRESHOLD} \
