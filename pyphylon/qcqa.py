@@ -98,7 +98,7 @@ def filter_by_genome_quality(
 
     # Typecast relevant columns as numeric
     filtered_species_summary['contig_l50'] = filtered_species_summary['contig_l50'].astype('int')
-    filtered_species_summary['contig_n50'] = filtered_species_summary['contig_l50'].astype('int')
+    filtered_species_summary['contig_n50'] = filtered_species_summary['contig_n50'].astype('int')
     filtered_species_summary['contigs'] = filtered_species_summary['contigs'].astype('int')
     filtered_species_summary['checkm_contamination'] = filtered_species_summary['checkm_contamination'].astype('float')
     filtered_species_summary['checkm_completeness'] = filtered_species_summary['checkm_completeness'].astype('float')
