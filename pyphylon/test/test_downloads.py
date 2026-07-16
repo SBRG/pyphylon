@@ -5,7 +5,8 @@ from unittest.mock import patch, mock_open, MagicMock, call
 @pytest.fixture
 def taxon_id_and_value():
     # test values of input and expected output for E. coli K12 reference strain
-    return ('562', 4600000)
+    # API returns exact scaffold N50 in bp (previously 4600000 from rounded "4.6 Mb" Selenium scrape)
+    return ('562', 4641652)
 
 
 def test__get_scaffold_n50_for_species(taxon_id_and_value) -> None:

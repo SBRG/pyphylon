@@ -11,8 +11,5 @@ umap-learn
 hdbscan
 prince
 kneebow
-selenium
-webdriver-manager
 pyyaml
 ipywidgets
-beautifulsoup4
