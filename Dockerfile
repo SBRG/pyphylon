@@ -1,4 +1,3 @@
-FROM snakemake/snakemake:v7.25.0
+FROM snakemake/snakemake:v8.30.0
 WORKDIR /workflows
-RUN apt update
-RUN apt install less
+RUN micromamba install -y -n base -c conda-forge less
